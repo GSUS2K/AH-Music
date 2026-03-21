@@ -112,42 +112,51 @@ client.on('interactionCreate', async interaction => {
                     return interaction.editReply({ content: '❌ This track is too long to send over Discord (max 25 minutes).' });
                 }
 
+                // Best audio is usually .webm or .m4a. Discord supports uploading and playing both natively.
                 const cleanTitle = (track.title || "audio").replace(/[^a-zA-Z0-9 -]/g, '');
-                const filePath = require('path').join(__dirname, `${track.youtubeId || Date.now()}.mp3`);
                 
-                await interaction.editReply({ content: '⏳ Formatting track for download... please wait.' });
+                // We don't specify extension here because yt-dlp determines it from bestaudio format
+                const filePathTemplate = require('path').join(__dirname, `${track.youtubeId || Date.now()}.%(ext)s`);
+                
+                await interaction.editReply({ content: '⏳ Downloading highest quality audio stream... please wait.' });
 
                 try {
                     const youtubedl = require('youtube-dl-exec');
-                    // Use exec with stdio ignore for stdout to prevent maxBuffer crashes and binary log splatters
+                    // Bypass -x (ffmpeg extraction) because missing ffprobe on Ubuntu causes yt-dlp to hang forever.
                     await youtubedl.exec(track.actualUrl, {
-                        x: true,
-                        audioFormat: 'mp3',
-                        audioQuality: 0,
-                        o: filePath,
+                        f: 'bestaudio/best', // Download natively without converting to mp3
+                        o: filePathTemplate,
                         noCheckCertificates: true
                     }, { stdio: ['ignore', 'ignore', 'pipe'] });
 
                     const fs = require('fs');
-                    if (!fs.existsSync(filePath)) {
-                        throw new Error("File was not created by yt-dlp");
+                    // Find exactly which file was created (since extension could be webm, m4a, opus)
+                    const directoryFiles = fs.readdirSync(__dirname);
+                    const downloadedFile = directoryFiles.find(f => f.startsWith(track.youtubeId || ''));
+                    
+                    if (!downloadedFile) {
+                        throw new Error("Audio file was not created by yt-dlp");
                     }
                     
-                    const stats = fs.statSync(filePath);
+                    const actualFilePath = require('path').join(__dirname, downloadedFile);
+                    const ext = require('path').extname(actualFilePath);
+                    
+                    const stats = fs.statSync(actualFilePath);
                     if (stats.size > 25 * 1024 * 1024) {
+                        if (fs.existsSync(actualFilePath)) fs.unlinkSync(actualFilePath);
                         return interaction.editReply({ content: "❌ The downloaded file exceeds Discord's 25MB upload limit." });
                     }
 
                     const { AttachmentBuilder } = require('discord.js');
-                    const attachment = new AttachmentBuilder(filePath, { name: `${cleanTitle}.mp3` });
+                    const attachment = new AttachmentBuilder(actualFilePath, { name: `${cleanTitle}${ext}` });
 
                     await interaction.editReply({ content: '✅ Here is your audio file!', files: [attachment] });
+                    // Clean up after sending
+                    setTimeout(() => { if (fs.existsSync(actualFilePath)) fs.unlinkSync(actualFilePath); }, 5000);
+
                 } catch (dlError) {
                     console.error('Download error:', dlError.message || dlError);
                     await interaction.editReply({ content: '❌ Failed to extract audio or the file exceeds Discord limits.' }).catch(() => null);
-                } finally {
-                    const fs = require('fs');
-                    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
                 }
             } else if (interaction.customId === 'stop') {
                 interaction.client.queues.delete(interaction.guild.id);
