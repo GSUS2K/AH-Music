@@ -257,36 +257,37 @@ async function playNextSong(guildId, queueMap, interaction) {
     queue.player = player;
     queue.connection.subscribe(player);
 
-    // Try play-dl first (pure Node.js, instant)
-    // BUT for LIVE STREAMS (0 duration), use the specialized HLS+ffmpeg pipeline for max stability
+    // Determine streaming method
     let resource;
     const isLive = track.totalDurationMs === 0;
 
     if (isLive) {
-        console.log(`[Stream] Live stream detected, using stable HLS+ffmpeg pipeline: ${track.title}`);
+        console.log(`[Stream] Live stream detected, using high-compatibility RAW pipeline: ${track.title}`);
         try {
             const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
             const { spawn } = require('child_process');
             
-            // Force HLS manifest for YouTube live
+            // Get the best audio URL (usually HLS for live)
             const manifestUrl = await youtubedl(track.actualUrl, {
-                f: '95/94/bestaudio/best', getUrl: true, 'no-check-certificates': true, 'no-warnings': true,
+                f: 'bestaudio/best', getUrl: true, 'no-check-certificates': true, 'no-warnings': true,
             }).catch(() => track.actualUrl);
 
             const ffmpeg = spawn(ffmpegPath, [
                 '-re', 
                 '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
                 '-i', manifestUrl.trim(),
-                '-vn', '-acodec', 'libopus', '-f', 'opus', '-ar', '48000', '-ac', '2',
+                '-vn', '-f', 's16le', '-ar', '48000', '-ac', '2',
                 'pipe:1'
             ], { stdio: ['ignore', 'pipe', 'ignore'] });
 
-            resource = createAudioResource(ffmpeg.stdout, { inputType: require('@discordjs/voice').StreamType.OggOpus });
+            const { StreamType } = require('@discordjs/voice');
+            resource = createAudioResource(ffmpeg.stdout, { inputType: StreamType.Raw });
         } catch (err) {
-            console.error(`[Stream] Live HLS failed, falling back: ${err.message}`);
+            console.error(`[Stream] Live stream setup failed: ${err.message}`);
         }
     }
 
+    // Fallback to play-dl for regular tracks or if live setup failed
     if (!resource) {
         try {
             const stream = await playDl.stream(track.actualUrl, { quality: 2 });
@@ -312,13 +313,18 @@ async function playNextSong(guildId, queueMap, interaction) {
     );
 
 
-    const durationStr = `${Math.floor(track.totalDurationMs / 60000)}:${Math.floor((track.totalDurationMs % 60000) / 1000).toString().padStart(2, '0')}`;
+    const durationStr = track.totalDurationMs === 0 ? 'LIVE' : `${Math.floor(track.totalDurationMs / 60000)}:${Math.floor((track.totalDurationMs % 60000) / 1000).toString().padStart(2, '0')}`;
     
     // Fetch lyrics early (don't block audio playback)
+    // SKIP for live streams (duration 0)
     let syncedLyrics = null;
-    fetchSyncedLyrics(track.title, track.author, track.totalDurationMs / 1000, track.query).then(results => {
-        syncedLyrics = results;
-    }).catch(err => console.warn('[Lyrics] Initial fetch failed:', err.message));
+    if (track.totalDurationMs > 0) {
+        fetchSyncedLyrics(track.title, track.author, track.totalDurationMs / 1000, track.query).then(results => {
+            syncedLyrics = results;
+        }).catch(err => console.warn('[Lyrics] Initial fetch failed:', err.message));
+    } else {
+        console.log(`[Lyrics] Skipping fetch for live stream: ${track.title}`);
+    }
 
     const generateEmbed = (currentMs) => {
         const totalBars = 25;
