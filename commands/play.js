@@ -85,7 +85,8 @@ module.exports = {
                 player: null,
                 songs: [track],
                 playing: true,
-                lastPlayedId: null
+                lastPlayedId: null,
+                lyricOffsetMs: 0
             };
             queueMap.set(interaction.guild.id, queueConstruct);
 
@@ -451,6 +452,8 @@ async function playNextSong(guildId, queueMap, interaction) {
     }
 
     row.addComponents(
+        new ButtonBuilder().setCustomId('sync_minus').setLabel('⏪ Sync -1s').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('sync_plus').setLabel('⏩ Sync +1s').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('stop').setLabel('⏹️ Stop').setStyle(ButtonStyle.Danger)
     );
 
@@ -486,9 +489,14 @@ async function playNextSong(guildId, queueMap, interaction) {
         let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
 
         if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
+            const manualOffsetMs = queue.lyricOffsetMs || 0;
+            if (manualOffsetMs !== 0) {
+                const offsetSec = (manualOffsetMs / 1000).toFixed(1);
+                description += `\n\`[Sync: ${offsetSec > 0 ? '+' : ''}${offsetSec}s]\``;
+            }
+
             // Apply both automatic (chapters) and manual (/lyrics offset) offsets
             const autoOffsetMs = track.introOffsetMs || 0;
-            const manualOffsetMs = queue.lyricOffsetMs || 0;
             const offsetMs = autoOffsetMs + manualOffsetMs;
             
             const adjustedMs = currentMs - offsetMs;

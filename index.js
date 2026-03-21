@@ -168,6 +168,18 @@ client.on('interactionCreate', async interaction => {
                     console.error('Download error:', dlError.message || dlError);
                     await interaction.editReply({ content: '❌ Failed to extract audio or the file exceeds Discord limits.' }).catch(() => null);
                 }
+            } else if (interaction.customId === 'sync_minus' || interaction.customId === 'sync_plus') {
+                const queue = interaction.client.queues.get(interaction.guild.id);
+                if (!queue) return interaction.reply({ content: 'No active queue found.', ephemeral: true });
+                
+                const adjustment = interaction.customId === 'sync_minus' ? -1000 : 1000;
+                queue.lyricOffsetMs = (queue.lyricOffsetMs || 0) + adjustment;
+                
+                const offsetSec = (queue.lyricOffsetMs / 1000).toFixed(1);
+                await interaction.reply({ 
+                    content: `Lyric sync adjusted to **${offsetSec > 0 ? '+' : ''}${offsetSec}s**. The next lyric update will reflect this change.`, 
+                    ephemeral: true 
+                });
             } else if (interaction.customId === 'stop') {
                 interaction.client.queues.delete(interaction.guild.id);
                 connection.destroy();
