@@ -468,19 +468,18 @@ async function playNextSong(guildId, queueMap, interaction) {
     }
 
     const generateEmbed = (currentMs) => {
-        const totalBars = 25;
+        const totalBars = 20;
         const progress = track.totalDurationMs > 0 ? Math.min(currentMs / track.totalDurationMs, 1) : 0;
         const progressIndex = Math.floor(progress * totalBars);
         
         let bar = '';
         for (let i = 0; i < totalBars; i++) {
-            if (i === progressIndex) bar += '🔵';
-            else bar += '▬';
+            if (i === progressIndex) bar += '●';
+            else bar += '━';
         }
 
         const currentStr = `${Math.floor(currentMs / 60000)}:${Math.floor((currentMs % 60000) / 1000).toString().padStart(2, '0')}`;
-        
-        const reqValue = track.requester === 'Autoplay' ? '🤖 Autoplay' : `<@${track.requester}>`;
+        const reqValue = track.requester === 'Autoplay' ? 'Autoplay' : `<@${track.requester}>`;
 
         let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
 
@@ -491,10 +490,8 @@ async function playNextSong(guildId, queueMap, interaction) {
                 description += `\n\`[Sync: ${offsetSec > 0 ? '+' : ''}${offsetSec}s]\``;
             }
 
-            // Apply both automatic (chapters) and manual (/lyrics offset) offsets
             const autoOffsetMs = track.introOffsetMs || 0;
             const offsetMs = autoOffsetMs + manualOffsetMs;
-            
             const adjustedMs = currentMs - offsetMs;
             const lines = syncedLyrics.lyrics;
             const index = lines.findLastIndex(l => l.time <= adjustedMs);
@@ -503,9 +500,9 @@ async function playNextSong(guildId, queueMap, interaction) {
                 const prev = lines[index - 1] ? `\n*${lines[index - 1].text}*` : "";
                 const current = `\n**${lines[index].text}**`;
                 const next = lines[index + 1] ? `\n*${lines[index + 1].text}*` : "";
-                description += `\n\n🎵 Lyrics:${prev}${current}${next}`;
+                description += `\n\n**Lyrics**\n${prev}${current}${next}`;
             } else if (adjustedMs < 0) {
-                description += `\n\n🎵 Lyrics:\n*... Intro ...*`;
+                description += `\n\n**Lyrics**\n*... Intro ...*`;
             }
         }
 
@@ -517,7 +514,7 @@ async function playNextSong(guildId, queueMap, interaction) {
                 { name: 'Requested by', value: reqValue, inline: true },
                 { name: 'Channel', value: `<#${queue.voiceChannel.id}>`, inline: true }
             )
-            .setColor(0x23272A);
+            .setColor(0x2B2D31); // Modern Discord background-matching grey
     };
 
     const rows = [row1];
