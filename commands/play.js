@@ -38,8 +38,9 @@ module.exports = {
                 
                 console.log(`[Play] Querying metadata: ${urlQuery}`);
                 
-                // Use execFile (array of args) for safety
-                const { execFile: execFilePromise } = require('util').promisify(require('child_process'));
+                // Use execFile with a hard timeout of 15 seconds
+                const { promisify } = require('util');
+                const execFilePromise = promisify(require('child_process').execFile);
                 const { stdout } = await execFilePromise(ytdlpPath, [
                     '--dump-single-json',
                     '--no-check-certificates',
@@ -369,7 +370,8 @@ async function playNextSong(guildId, queueMap, interaction) {
             // Get the direct m3u8 playlist URL from yt-dlp (no ffmpeg needed for this)
             // Get the direct m3u8 playlist URL from yt-dlp
             const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
-            const { execFile: execFilePromise } = require('util').promisify(require('child_process'));
+            const { promisify } = require('util');
+            const execFilePromise = promisify(require('child_process').execFile);
             const { stdout: m3u8Url } = await execFilePromise(ytdlpPath, [
                 '--get-url',
                 '--no-check-certificates',
