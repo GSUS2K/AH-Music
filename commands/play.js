@@ -115,6 +115,42 @@ module.exports = {
 };
 
 
+async function fetchSyncedLyrics(trackName, artistName, durationSec) {
+    try {
+        // Clean up track name (remove (Official Video), [MV], etc.)
+        const cleanTrack = trackName.replace(/\(.*\)|\[.*\]/g, '').trim();
+        const url = `https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTrack)}&artist_name=${encodeURIComponent(artistName)}&duration=${Math.floor(durationSec)}`;
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data.syncedLyrics ? parseLRC(data.syncedLyrics) : null;
+    } catch (error) {
+        console.error('[Lyrics] Fetch error:', error.message);
+        return null;
+    }
+}
+
+
+function parseLRC(lrc) {
+    const lines = lrc.split('\n');
+    const lyrics = [];
+    const timeRegex = /\[(\d+):(\d+\.\d+)\]/;
+
+    for (const line of lines) {
+        const match = timeRegex.exec(line);
+        if (match) {
+            const minutes = parseInt(match[1]);
+            const seconds = parseFloat(match[2]);
+            const timeMs = (minutes * 60 + seconds) * 1000;
+            const text = line.split(']').slice(1).join(']').trim();
+            if (text) {
+                lyrics.push({ time: timeMs, text });
+            }
+        }
+    }
+    return lyrics;
+}
+
 async function playNextSong(guildId, queueMap, interaction) {
     const queue = queueMap.get(guildId);
     
@@ -182,8 +218,15 @@ async function playNextSong(guildId, queueMap, interaction) {
         new ButtonBuilder().setCustomId('stop').setLabel('⏹️ Stop').setStyle(ButtonStyle.Danger)
     );
 
+
     const durationStr = `${Math.floor(track.totalDurationMs / 60000)}:${Math.floor((track.totalDurationMs % 60000) / 1000).toString().padStart(2, '0')}`;
     
+    // Fetch lyrics early (don't block audio playback)
+    let syncedLyrics = null;
+    fetchSyncedLyrics(track.title, track.author, track.totalDurationMs / 1000).then(results => {
+        syncedLyrics = results;
+    }).catch(err => console.warn('[Lyrics] Initial fetch failed:', err.message));
+
     const generateEmbed = (currentMs) => {
         const totalBars = 25;
         const progress = track.totalDurationMs > 0 ? Math.min(currentMs / track.totalDurationMs, 1) : 0;
@@ -199,9 +242,21 @@ async function playNextSong(guildId, queueMap, interaction) {
         
         const reqValue = track.requester === 'Autoplay' ? '🤖 Autoplay' : `<@${track.requester}>`;
 
+        let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
+
+        if (syncedLyrics && syncedLyrics.length > 0) {
+            const index = syncedLyrics.findLastIndex(l => l.time <= currentMs);
+            if (index !== -1) {
+                const prev = syncedLyrics[index - 1] ? `\n*${syncedLyrics[index - 1].text}*` : "";
+                const current = `\n**${syncedLyrics[index].text}**`;
+                const next = syncedLyrics[index + 1] ? `\n*${syncedLyrics[index + 1].text}*` : "";
+                description += `\n\n🎵 Lyrics:${prev}${current}${next}`;
+            }
+        }
+
         return new EmbedBuilder()
             .setTitle('Now playing')
-            .setDescription(`**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`)
+            .setDescription(description)
             .setThumbnail(track.thumbnail)
             .addFields(
                 { name: 'Requested by', value: reqValue, inline: true },
@@ -217,19 +272,31 @@ async function playNextSong(guildId, queueMap, interaction) {
          replyMessage = await queue.textChannel.send({ embeds: [generateEmbed(0)], components: [row] }).catch(() => null);
     }
 
+    let lastKnownLyricIndex = -1;
+    let lastUpdateMs = 0;
+
     const progressInterval = setInterval(async () => {
         if (!queue.connection || queue.connection.state.status === VoiceConnectionStatus.Destroyed) {
             clearInterval(progressInterval);
             return;
         }
+        
+        const currentMs = resource.playbackDuration || 0;
+        const currentLyricIndex = syncedLyrics ? syncedLyrics.findLastIndex(l => l.time <= currentMs) : -1;
+
         if (player.state.status === 'playing' && replyMessage) {
-            try {
-                await replyMessage.edit({ embeds: [generateEmbed(resource.playbackDuration)] });
-            } catch (err) {
-                clearInterval(progressInterval);
+            // Update only if local lyric line changed OR 5 seconds passed since last progress bar update
+            if (currentLyricIndex !== lastKnownLyricIndex || (currentMs - lastUpdateMs) >= 5000) {
+                lastKnownLyricIndex = currentLyricIndex;
+                lastUpdateMs = currentMs;
+                try {
+                    await replyMessage.edit({ embeds: [generateEmbed(currentMs)] });
+                } catch (err) {
+                    clearInterval(progressInterval);
+                }
             }
         }
-    }, 4_000);
+    }, 1000);
 
     player.on(AudioPlayerStatus.Idle, () => {
         clearInterval(progressInterval);
