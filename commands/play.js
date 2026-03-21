@@ -116,6 +116,7 @@ module.exports = {
 
 
 async function fetchSyncedLyrics(trackName, artistName, durationSec) {
+    console.log(`[Lyrics] Fetching: "${trackName}" by "${artistName}" (${durationSec}s)`);
     try {
         let artist = artistName.replace(' - Topic', '').trim();
         let track = trackName.replace(/\(.*\)|\[.*\]/g, '').trim();
@@ -140,9 +141,12 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec) {
         response = await fetch(searchUrl);
         if (response.ok) {
             const results = await response.json();
-            // Find first result with synced lyrics and reasonably close duration
-            const best = results.find(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 30);
-            if (best) return parseLRC(best.syncedLyrics);
+            // Find first result with synced lyrics and reasonably close duration (within 60s)
+            const best = results.find(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60);
+            if (best) {
+                console.log(`[Lyrics] Search fallback found: ${best.trackName} by ${best.artistName}`);
+                return parseLRC(best.syncedLyrics);
+            }
         }
 
         return null;
