@@ -6,6 +6,16 @@ const isWindows = process.platform === 'win32';
 process.env.PATH = `${path.dirname(ffmpegBinaryPath)}${isWindows ? ';' : ':'}${process.env.PATH}`;
 
 const fs = require('fs');
+
+// Prefer the system-installed yt-dlp over the stale npm-bundled binary
+const systemYtdlp = '/usr/local/bin/yt-dlp';
+if (fs.existsSync(systemYtdlp)) {
+    process.env.YOUTUBE_DL_PATH = systemYtdlp;
+    console.log('[Startup] Using system yt-dlp:', systemYtdlp);
+} else {
+    console.log('[Startup] System yt-dlp not found, using npm bundled binary');
+}
+
 const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
 const { Player } = require('discord-player');
 
