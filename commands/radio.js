@@ -45,29 +45,12 @@ module.exports = {
                 return proc.stdout;
             };
 
-            const getResource = async (url) => {
-                try {
-                    const result = await youtubedl(url, {
-                        f: 'bestaudio/best',
-                        getUrl: true,
-                        noCheckCertificates: true,
-                        noWarnings: true,
-                    });
-                    const directUrl = typeof result === 'string' ? result.trim().split('\n')[0] : null;
-                    if (!directUrl) throw new Error("No URL returned");
-                    return createAudioResource(directUrl);
-                } catch (e) {
-                    console.warn("Radio: URL extraction failed, falling back to yt-dlp pipe:", e.message);
-                    return createAudioResource(startYtdl(url));
-                }
-            };
-
-            const resource = await getResource(query);
+            const resource = createAudioResource(startYtdl(query));
             player.play(resource);
 
-            player.on(AudioPlayerStatus.Idle, async () => {
+            player.on(AudioPlayerStatus.Idle, () => {
                 try {
-                    player.play(await getResource(query));
+                    player.play(createAudioResource(startYtdl(query)));
                 } catch(e) {
                     console.error("Radio Stream Restart Failed:", e);
                 }

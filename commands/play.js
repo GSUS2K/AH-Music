@@ -125,26 +125,11 @@ async function playNextSong(guildId, queueMap, interaction) {
     queue.player = player;
     queue.connection.subscribe(player);
 
-    // Get direct CDN stream URL from yt-dlp (much faster than piping)
-    let resource;
-    try {
-        const result = await youtubedl(track.actualUrl, {
-            f: 'bestaudio/best',
-            getUrl: true,
-            noCheckCertificates: true,
-            noWarnings: true,
-        });
-        // result is a string with the direct CDN URL
-        const directUrl = typeof result === 'string' ? result.trim().split('\n')[0] : null;
-        if (!directUrl) throw new Error("No URL returned");
-        resource = createAudioResource(directUrl);
-    } catch (e) {
-        console.warn("URL extraction failed, falling back to yt-dlp pipe:", e.message);
-        const proc = youtubedl.exec(track.actualUrl, {
-            o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
-        }, { stdio: ['ignore', 'pipe', 'ignore'] });
-        resource = createAudioResource(proc.stdout);
-    }
+    // Stream audio via yt-dlp pipe (most compatible approach)
+    const proc = youtubedl.exec(track.actualUrl, {
+        o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+    }, { stdio: ['ignore', 'pipe', 'ignore'] });
+    const resource = createAudioResource(proc.stdout);
 
     player.play(resource);
 
