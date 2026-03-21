@@ -448,7 +448,7 @@ async function playNextSong(guildId, queueMap, interaction) {
 
     if (!isLive) {
         row2.addComponents(
-            new ButtonBuilder().setCustomId('download').setLabel('Download Audio').setEmoji('📥').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId('download').setLabel('Download Audio').setEmoji('⬇️').setStyle(ButtonStyle.Success)
         );
     }
 
@@ -467,7 +467,7 @@ async function playNextSong(guildId, queueMap, interaction) {
     }
 
     const generateEmbed = (currentMs) => {
-        const totalBars = 45; // Solid length for block bar
+        const totalBars = 33; // Solid length for block bar
         const progress = track.totalDurationMs > 0 ? Math.min(currentMs / track.totalDurationMs, 1) : 0;
         const progressIndex = Math.floor(progress * totalBars);
         
