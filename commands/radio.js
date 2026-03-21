@@ -83,26 +83,20 @@ module.exports = {
             const startRadioStream = async (url) => {
                 const { StreamType } = require('@discordjs/voice');
                 
-                // Try play-dl first (same logic as play.js which we know works)
+                // For radio/live, the most robust way across different VMs/versions is 
+                // piping the best audio URL directly through ffmpeg to OggOpus.
                 try {
-                    console.log(`[Radio] play-dl attempt: ${url}`);
-                    const stream = await playDl.stream(url, { quality: 2 });
-                    return createAudioResource(stream.stream, { inputType: stream.type });
-                } catch (playDlErr) {
-                    console.warn(`[Radio] play-dl failed: ${playDlErr.message}`);
-                }
-
-                // Fallback: ffmpeg to Opus (native Discord format)
-                try {
-                    console.log(`[Radio] ffmpeg-opus fallback: ${url}`);
-                    // We can use yt-dlp to get the best audio URL then pipe to ffmpeg
-                    const manifestUrl = await youtubedl(url, {
+                    console.log(`[Radio] Starting stream: ${url}`);
+                    
+                    // Step 1: Get the real stream URL
+                    const streamUrl = await youtubedl(url, {
                         f: 'bestaudio/best', getUrl: true, noCheckCertificates: true, noWarnings: true,
                     }).catch(() => url);
 
+                    // Step 2: Spawn ffmpeg - transcoding to Opus on the fly ensures buffer stability
                     const ffmpeg = spawn(ffmpegPath, [
                         '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
-                        '-i', manifestUrl.trim(),
+                        '-i', streamUrl.trim(),
                         '-vn',
                         '-acodec', 'libopus',
                         '-f', 'opus',
@@ -116,9 +110,10 @@ module.exports = {
                         if (m.includes('Error') || m.includes('fail')) console.error(`[Radio FFMPEG] ${m}`);
                     });
 
+                    // Use Arbitrary + Opus to let discord-voice handle the buffering more gracefully
                     return createAudioResource(ffmpeg.stdout, { inputType: StreamType.OggOpus });
                 } catch (err) {
-                    console.error(`[Radio] All fallbacks failed: ${err.message}`);
+                    console.error(`[Radio] Streaming error: ${err.message}`);
                     return null;
                 }
             };

@@ -119,13 +119,13 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec) {
     console.log(`[Lyrics] Fetching: "${trackName}" by "${artistName}" (${durationSec}s)`);
     try {
         let artist = artistName.replace(' - Topic', '').trim();
-        let track = trackName.replace(/\(.*\)|\[.*\]/g, '').trim();
+        let track = trackName.replace(/\(.*\)|\[.*\]|\|.*/g, '').trim();
 
         // If the title looks like "Artist - Track", split it for better matching
         if (trackName.includes(' - ')) {
             const parts = trackName.split(' - ');
             artist = parts[0].trim();
-            track = parts[1].replace(/\(.*\)|\[.*\]/g, '').trim();
+            track = parts[1].replace(/\(.*\)|\[.*\]|\|.*/g, '').trim();
         }
 
         const queryUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(track)}&artist_name=${encodeURIComponent(artist)}&duration=${Math.floor(durationSec)}`;
