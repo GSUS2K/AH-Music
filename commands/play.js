@@ -324,26 +324,43 @@ async function playNextSong(guildId, queueMap, interaction) {
 
     // Stream directly via yt-dlp (uses system ffmpeg)
     try {
-        const opts = {
-            o: '-',
-            q: '',
-            noCheckCertificates: true
-        };
         if (isLive) {
-            opts.f = 'best[protocol=m3u8_native]/best';
-            opts.downloader = 'native'; // bypass ffmpeg for HLS
-            opts['hls-use-mpegts'] = true;
+            // For live streams: get the direct URL then pipe via Node.js to avoid ffmpeg entirely
+            const streamUrl = await youtubedl(track.actualUrl, {
+                getUrl: true,
+                f: 'best[protocol=m3u8_native]/best',
+                noCheckCertificates: true
+            }).catch(() => null);
+
+            if (streamUrl) {
+                const https = require('https');
+                const http = require('http');
+                const { PassThrough } = require('stream');
+                const pass = new PassThrough();
+                const client = streamUrl.trim().startsWith('https') ? https : http;
+                client.get(streamUrl.trim(), (res) => res.pipe(pass)).on('error', (e) => {
+                    console.error(`[Stream] Live pipe error: ${e.message}`);
+                });
+                resource = createAudioResource(pass);
+                console.log('[Stream] Live: piping direct URL via Node.js (no ffmpeg)');
+            } else {
+                console.error('[Stream] Failed to get live stream URL');
+            }
         } else {
-            opts.f = 'bestaudio[ext=webm]/bestaudio/best';
+            const proc = youtubedl.exec(track.actualUrl, {
+                o: '-',
+                q: '',
+                f: 'bestaudio[ext=webm]/bestaudio/best',
+                noCheckCertificates: true
+            }, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+            proc.stderr.on('data', (data) => {
+                const msg = data.toString();
+                if (msg.includes('Error') || msg.includes('error')) console.error(`[Stream] yt-dlp: ${msg.trim()}`);
+            });
+
+            resource = createAudioResource(proc.stdout);
         }
-        const proc = youtubedl.exec(track.actualUrl, opts, { stdio: ['ignore', 'pipe', 'pipe'] });
-
-        proc.stderr.on('data', (data) => {
-            const msg = data.toString();
-            if (msg.includes('Error') || msg.includes('error') || isLive) console.error(`[Stream] yt-dlp: ${msg.trim()}`);
-        });
-
-        resource = createAudioResource(proc.stdout);
     } catch (e) {
         console.error(`[Stream] yt-dlp failed: ${e.message}`);
     }
