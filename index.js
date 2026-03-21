@@ -103,27 +103,47 @@ client.on('interactionCreate', async interaction => {
                 }
 
                 const track = queue.songs[0];
+                
+                // Prevent downloading live streams or very long tracks (Discord upload limit is usually 25MB, ~25 min at 128kbps)
+                if (!track.totalDurationMs || track.totalDurationMs === 0) {
+                    return interaction.editReply({ content: '❌ Cannot download live radio or streams with unknown duration.' });
+                }
+                if (track.totalDurationMs > 25 * 60 * 1000) {
+                    return interaction.editReply({ content: '❌ This track is too long to send over Discord (max 25 minutes).' });
+                }
+
                 const cleanTitle = (track.title || "audio").replace(/[^a-zA-Z0-9 -]/g, '');
-                const filePath = require('path').join(__dirname, `${track.youtubeId}.mp3`);
+                const filePath = require('path').join(__dirname, `${track.youtubeId || Date.now()}.mp3`);
                 
                 await interaction.editReply({ content: '⏳ Formatting track for download... please wait.' });
 
                 try {
                     const youtubedl = require('youtube-dl-exec');
-                    await youtubedl(track.actualUrl, {
+                    // Use exec with stdio ignore for stdout to prevent maxBuffer crashes and binary log splatters
+                    await youtubedl.exec(track.actualUrl, {
                         x: true,
                         audioFormat: 'mp3',
                         audioQuality: 0,
                         o: filePath,
                         noCheckCertificates: true
-                    });
+                    }, { stdio: ['ignore', 'ignore', 'pipe'] });
+
+                    const fs = require('fs');
+                    if (!fs.existsSync(filePath)) {
+                        throw new Error("File was not created by yt-dlp");
+                    }
+                    
+                    const stats = fs.statSync(filePath);
+                    if (stats.size > 25 * 1024 * 1024) {
+                        return interaction.editReply({ content: "❌ The downloaded file exceeds Discord's 25MB upload limit." });
+                    }
 
                     const { AttachmentBuilder } = require('discord.js');
                     const attachment = new AttachmentBuilder(filePath, { name: `${cleanTitle}.mp3` });
 
                     await interaction.editReply({ content: '✅ Here is your audio file!', files: [attachment] });
                 } catch (dlError) {
-                    console.error('Download error:', dlError);
+                    console.error('Download error:', dlError.message || dlError);
                     await interaction.editReply({ content: '❌ Failed to extract audio or the file exceeds Discord limits.' }).catch(() => null);
                 } finally {
                     const fs = require('fs');
