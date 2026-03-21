@@ -353,12 +353,15 @@ async function playNextSong(guildId, queueMap, interaction) {
     const isLive = track.totalDurationMs === 0;
 
     if (isLive) {
-        console.log(`[Stream] Live stream detected, using stable yt-dlp pipe: ${track.title}`);
+        console.log(`[Stream] Live stream detected, using definitive yt-dlp engine: ${track.title}`);
         try {
             const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
             
+            // Forces HLS formats (95/94/93) and points to our internal ffmpeg
             const proc = youtubedl.exec(track.actualUrl, {
-                o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+                o: '-', q: '', 
+                f: '95/94/93/bestaudio/best', 
+                'no-check-certificates': true,
                 ffmpegLocation: ffmpegPath
             }, { stdio: ['ignore', 'pipe', 'ignore'] });
 
