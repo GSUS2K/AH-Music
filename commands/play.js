@@ -36,7 +36,7 @@ module.exports = {
                 thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
                 author = entry.uploader || 'Unknown Artist';
                 actualUrl = entry.webpage_url || query;
-                totalDurationMs = (entry.duration || 0) * 1000;
+                totalDurationMs = (entry.is_live || entry.live_status === 'is_live') ? 0 : (entry.duration || 0) * 1000;
                 youtubeId = entry.id;
 
                 // Check for chapters to find intro offset
