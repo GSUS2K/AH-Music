@@ -287,10 +287,10 @@ async function playNextSong(guildId, queueMap, interaction) {
         let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
 
         if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
-            // Priority 1: Use detected chapters (introOffsetMs)
-            // Priority 2: If no chapters, and video is > lyrics, assume it might be intro/outro
-            // BUT: It's safer to assume OUTRO (offset=0) if we don't have a chapter proof of intro.
-            let offsetMs = track.introOffsetMs || 0;
+            // Apply both automatic (chapters) and manual (/lyrics offset) offsets
+            const autoOffsetMs = track.introOffsetMs || 0;
+            const manualOffsetMs = queue.lyricOffsetMs || 0;
+            const offsetMs = autoOffsetMs + manualOffsetMs;
             
             const adjustedMs = currentMs - offsetMs;
             const lines = syncedLyrics.lyrics;
@@ -336,7 +336,9 @@ async function playNextSong(guildId, queueMap, interaction) {
         const currentMs = resource.playbackDuration || 0;
         const currentLyricIndex = (syncedLyrics && syncedLyrics.lyrics) 
             ? syncedLyrics.lyrics.findLastIndex(l => {
-                const offsetMs = track.introOffsetMs || 0;
+                const autoOffsetMs = track.introOffsetMs || 0;
+                const manualOffsetMs = queue.lyricOffsetMs || 0;
+                const offsetMs = autoOffsetMs + manualOffsetMs;
                 return l.time <= currentMs - offsetMs;
             }) 
             : -1;
