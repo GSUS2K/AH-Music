@@ -366,41 +366,41 @@ async function playNextSong(guildId, queueMap, interaction) {
 
             console.log(`[Stream] Manifest URL retrieved, spawning ffmpeg transcode...`);
 
-            // 2. Spawn ffmpeg to transcode HLS directly to Opus
+            // 2. Spawn ffmpeg to transcode HLS directly to Raw PCM (S-Tier stability)
             const proc = spawn(ffmpegPath, [
                 '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
                 '-i', manifestUrl.trim(),
-                '-vn', '-acodec', 'copy', '-f', 'adts', // Try to get raw AAC/ADTS for probing
+                '-vn', '-f', 's16le', '-ar', '48000', '-ac', '2',
                 'pipe:1'
             ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
             proc.stderr.on('data', (data) => {
                 const msg = data.toString().trim();
-                if (msg.includes('Error') || msg.includes('Failed')) {
-                    console.warn(`[Stream] [ffmpeg stderr] ${msg}`);
+                if (msg.includes('Error') || msg.includes('Failed') || msg.includes('Invalid')) {
+                    console.error(`[Stream] [ffmpeg stderr] ${msg}`);
                 }
             });
 
             // WAIT for initial data to avoid "cold start" skip
             await new Promise((resolve) => {
                 proc.stdout.once('data', () => {
-                    console.log('[Stream] First audio chunk received from ffmpeg.');
+                    console.error('[Stream] SUCCESS: Received first audio chunk from ffmpeg.');
                     resolve();
                 });
                 setTimeout(() => {
-                    console.warn('[Stream] Initial data timeout (10s)');
+                    console.error('[Stream] WARNING: Initial data timeout (10s)');
                     resolve();
                 }, 10000);
             });
 
             proc.on('exit', (code) => {
                 if (code !== 0 && code !== null && code !== 255) {
-                    console.warn(`[Stream] ffmpeg process exited with code ${code}`);
+                    console.error(`[Stream] CRITICAL: ffmpeg process exited with code ${code}`);
                 }
             });
 
             const { StreamType } = require('@discordjs/voice');
-            resource = createAudioResource(proc.stdout, { inputType: StreamType.Arbitrary });
+            resource = createAudioResource(proc.stdout, { inputType: StreamType.Raw });
         } catch (err) {
             console.error(`[Stream] Live stream setup failed: ${err.message}`);
         }
