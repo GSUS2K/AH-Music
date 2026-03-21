@@ -141,10 +141,13 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec) {
         response = await fetch(searchUrl);
         if (response.ok) {
             const results = await response.json();
-            // Find first result with synced lyrics and reasonably close duration (within 60s)
-            const best = results.find(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60);
+            // Find ALL synced results and sort by closest duration to ours
+            const best = results
+                .filter(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60)
+                .sort((a, b) => Math.abs(a.duration - durationSec) - Math.abs(b.duration - durationSec))[0];
+
             if (best) {
-                console.log(`[Lyrics] Search fallback found: ${best.trackName} by ${best.artistName}`);
+                console.log(`[Lyrics] Search fallback found: "${best.trackName}" (${best.duration}s) - Diff: ${Math.abs(best.duration - durationSec)}s`);
                 return parseLRC(best.syncedLyrics);
             }
         }
