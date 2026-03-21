@@ -94,7 +94,14 @@ module.exports = {
                         '-ar', '48000',
                         '-ac', '2',
                         'pipe:1'
-                    ], { stdio: ['ignore', 'pipe', 'ignore'] });
+                    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+                    ffmpeg.stderr.on('data', (data) => {
+                        const msg = data.toString();
+                        if (msg.includes('Error') || msg.includes('fail')) {
+                            console.error(`[Radio FFMPEG Error] ${msg}`);
+                        }
+                    });
 
                     return createAudioResource(ffmpeg.stdout, { inputType: StreamType.Raw });
                 }
@@ -148,7 +155,7 @@ module.exports = {
 
                 return new EmbedBuilder()
                     .setTitle('Live Radio')
-                    .setDescription(`**[${title}](${query})**\n*by ${author}*\n\n\`🔴 LIVE\` ${bar}`)
+                    .setDescription(`**[${title}](${streamUrl})**\n*by ${author}*\n\n\`🔴 LIVE\` ${bar}`)
                     .setThumbnail(thumbnail)
                     .addFields(
                         { name: 'Requested by', value: `<@${interaction.user.id}>`, inline: true },
