@@ -444,18 +444,19 @@ async function playNextSong(guildId, queueMap, interaction) {
     });
 
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('Skip Track').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('stop').setLabel('Stop / Clear').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('sync_minus').setLabel('Sync -1s').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('sync_plus').setLabel('Sync +1s').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume Playback').setEmoji('⏯️').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('skip').setLabel('Skip Current Track').setEmoji('⏭️').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('stop').setLabel('Stop and Clear Queue').setEmoji('⏹️').setStyle(ButtonStyle.Danger)
     );
     
-    const row2 = new ActionRowBuilder();
+    const row2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('sync_minus').setLabel('Adjust Sync -1.0s').setEmoji('⏪').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('sync_plus').setLabel('Adjust Sync +1.0s').setEmoji('⏩').setStyle(ButtonStyle.Secondary)
+    );
 
     if (!isLive) {
         row2.addComponents(
-            new ButtonBuilder().setCustomId('download').setLabel('Download Audio File').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId('download').setLabel('Download Audio File').setEmoji('⬇️').setStyle(ButtonStyle.Success)
         );
     }
 
@@ -514,12 +515,12 @@ async function playNextSong(guildId, queueMap, interaction) {
                 }
             }
 
-            description += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRequester: ${reqValue}  |  Channel: ${queue.voiceChannel ? `<#${queue.voiceChannel.id}>` : 'Unknown'}`;
+            description += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 **Requested by**: ${reqValue}  |  🔊 **Channel**: ${queue.voiceChannel ? `<#${queue.voiceChannel.id}>` : 'Unknown'}`;
 
             return new EmbedBuilder()
                 .setTitle('Now Playing')
                 .setDescription(description.substring(0, 4000))
-                .setImage(track.thumbnail) // FULL WIDTH
+                .setThumbnail(track.thumbnail)
                 .setColor(0x2B2D31);
         } catch (e) {
             console.error('[Embed Error]', e);
