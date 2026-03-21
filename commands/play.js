@@ -121,7 +121,6 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec) {
         let artist = artistName.replace(' - Topic', '').trim();
         let track = trackName.replace(/\(.*\)|\[.*\]|\|.*/g, '').trim();
 
-        // If the title looks like "Artist - Track", split it for better matching
         if (trackName.includes(' - ')) {
             const parts = trackName.split(' - ');
             artist = parts[0].trim();
@@ -133,25 +132,22 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec) {
         let response = await fetch(queryUrl);
         if (response.ok) {
             const data = await response.json();
-            if (data.syncedLyrics) return parseLRC(data.syncedLyrics);
+            if (data.syncedLyrics) return { lyrics: parseLRC(data.syncedLyrics), duration: data.duration };
         }
 
-        // Search fallback if GET fails
         const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${track}`)}`;
         response = await fetch(searchUrl);
         if (response.ok) {
             const results = await response.json();
-            // Find ALL synced results and sort by closest duration to ours
             const best = results
                 .filter(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60)
                 .sort((a, b) => Math.abs(a.duration - durationSec) - Math.abs(b.duration - durationSec))[0];
 
             if (best) {
                 console.log(`[Lyrics] Search fallback found: "${best.trackName}" (${best.duration}s) - Diff: ${Math.abs(best.duration - durationSec)}s`);
-                return parseLRC(best.syncedLyrics);
+                return { lyrics: parseLRC(best.syncedLyrics), duration: best.duration };
             }
         }
-
         return null;
     } catch (error) {
         console.error('[Lyrics] Fetch error:', error.message);
@@ -273,13 +269,25 @@ async function playNextSong(guildId, queueMap, interaction) {
 
         let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
 
-        if (syncedLyrics && syncedLyrics.length > 0) {
-            const index = syncedLyrics.findLastIndex(l => l.time <= currentMs);
+        if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
+            // Apply smart offset: if video is significantly longer than lyrics, assume it's an intro
+            let offsetMs = 0;
+            const lyricDurationMs = (syncedLyrics.duration || 0) * 1000;
+            if (track.totalDurationMs > lyricDurationMs + 5000) {
+                offsetMs = track.totalDurationMs - lyricDurationMs;
+            }
+
+            const adjustedMs = currentMs - offsetMs;
+            const lines = syncedLyrics.lyrics;
+            const index = lines.findLastIndex(l => l.time <= adjustedMs);
+            
             if (index !== -1) {
-                const prev = syncedLyrics[index - 1] ? `\n*${syncedLyrics[index - 1].text}*` : "";
-                const current = `\n**${syncedLyrics[index].text}**`;
-                const next = syncedLyrics[index + 1] ? `\n*${syncedLyrics[index + 1].text}*` : "";
+                const prev = lines[index - 1] ? `\n*${lines[index - 1].text}*` : "";
+                const current = `\n**${lines[index].text}**`;
+                const next = lines[index + 1] ? `\n*${lines[index + 1].text}*` : "";
                 description += `\n\n🎵 Lyrics:${prev}${current}${next}`;
+            } else if (adjustedMs < 0) {
+                description += `\n\n🎵 Lyrics:\n*... Intro ...*`;
             }
         }
 
@@ -311,7 +319,14 @@ async function playNextSong(guildId, queueMap, interaction) {
         }
         
         const currentMs = resource.playbackDuration || 0;
-        const currentLyricIndex = syncedLyrics ? syncedLyrics.findLastIndex(l => l.time <= currentMs) : -1;
+        const currentLyricIndex = (syncedLyrics && syncedLyrics.lyrics) 
+            ? syncedLyrics.lyrics.findLastIndex(l => {
+                const offsetMs = (track.totalDurationMs > (syncedLyrics.duration * 1000) + 5000) 
+                    ? track.totalDurationMs - (syncedLyrics.duration * 1000) 
+                    : 0;
+                return l.time <= currentMs - offsetMs;
+            }) 
+            : -1;
 
         if (player.state.status === 'playing' && replyMessage) {
             // Update only if local lyric line changed OR 5 seconds passed since last progress bar update
