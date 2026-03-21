@@ -257,19 +257,48 @@ async function playNextSong(guildId, queueMap, interaction) {
     queue.player = player;
     queue.connection.subscribe(player);
 
-    // Try play-dl first (pure Node.js, instant — no subprocess startup delay)
-    // Fall back to yt-dlp pipe if play-dl fails
+    // Try play-dl first (pure Node.js, instant)
+    // BUT for LIVE STREAMS (0 duration), use the specialized HLS+ffmpeg pipeline for max stability
     let resource;
-    try {
-        const stream = await playDl.stream(track.actualUrl, { quality: 2 });
-        resource = createAudioResource(stream.stream, { inputType: stream.type });
-        console.log(`[Stream] play-dl streaming: ${track.title}`);
-    } catch (e) {
-        console.warn(`[Stream] play-dl failed, using yt-dlp pipe: ${e.message}`);
-        const proc = youtubedl.exec(track.actualUrl, {
-            o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
-        }, { stdio: ['ignore', 'pipe', 'ignore'] });
-        resource = createAudioResource(proc.stdout);
+    const isLive = track.totalDurationMs === 0;
+
+    if (isLive) {
+        console.log(`[Stream] Live stream detected, using stable HLS+ffmpeg pipeline: ${track.title}`);
+        try {
+            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+            const { spawn } = require('child_process');
+            
+            // Force HLS manifest for YouTube live
+            const manifestUrl = await youtubedl(track.actualUrl, {
+                f: '95/94/bestaudio/best', getUrl: true, 'no-check-certificates': true, 'no-warnings': true,
+            }).catch(() => track.actualUrl);
+
+            const ffmpeg = spawn(ffmpegPath, [
+                '-re', 
+                '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
+                '-i', manifestUrl.trim(),
+                '-vn', '-acodec', 'libopus', '-f', 'opus', '-ar', '48000', '-ac', '2',
+                'pipe:1'
+            ], { stdio: ['ignore', 'pipe', 'ignore'] });
+
+            resource = createAudioResource(ffmpeg.stdout, { inputType: require('@discordjs/voice').StreamType.OggOpus });
+        } catch (err) {
+            console.error(`[Stream] Live HLS failed, falling back: ${err.message}`);
+        }
+    }
+
+    if (!resource) {
+        try {
+            const stream = await playDl.stream(track.actualUrl, { quality: 2 });
+            resource = createAudioResource(stream.stream, { inputType: stream.type });
+            console.log(`[Stream] play-dl streaming: ${track.title}`);
+        } catch (e) {
+            console.warn(`[Stream] play-dl failed, using yt-dlp pipe: ${e.message}`);
+            const proc = youtubedl.exec(track.actualUrl, {
+                o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+            }, { stdio: ['ignore', 'pipe', 'ignore'] });
+            resource = createAudioResource(proc.stdout);
+        }
     }
 
     player.play(resource);
