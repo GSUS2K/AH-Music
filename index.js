@@ -7,16 +7,22 @@ process.env.PATH = `${path.dirname(ffmpegBinaryPath)}${isWindows ? ';' : ':'}${p
 
 const fs = require('fs');
 
-// Prefer the system-installed yt-dlp over the stale npm-bundled binary
+// Prefer the system-installed yt-dlp or the local @distube binary
 const systemYtdlp = '/usr/local/bin/yt-dlp';
+const localYtdlp = path.join(__dirname, 'node_modules', '@distube', 'yt-dlp', 'bin', 'yt-dlp');
+
 if (fs.existsSync(systemYtdlp)) {
     process.env.YOUTUBE_DL_PATH = systemYtdlp;
     console.log('[Startup] Using system yt-dlp:', systemYtdlp);
+} else if (fs.existsSync(localYtdlp)) {
+    process.env.YOUTUBE_DL_PATH = localYtdlp;
+    console.log('[Startup] Using local @distube yt-dlp:', localYtdlp);
 } else {
-    console.log('[Startup] System yt-dlp not found, using npm bundled binary');
+    console.log('[Startup] Using npm bundled fallback');
 }
 
-const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const { exec } = require('child_process');
 const { Player } = require('discord-player');
 
 const client = new Client({
@@ -47,8 +53,27 @@ for (const file of commandFiles) {
     }
 }
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
+
+    // Check for restart context
+    const restartFile = './.restart_context.json';
+    if (fs.existsSync(restartFile)) {
+        try {
+            const context = JSON.parse(fs.readFileSync(restartFile, 'utf8'));
+            const channel = await client.channels.fetch(context.channelId).catch(() => null);
+            if (channel) {
+                const message = context.updated 
+                    ? '🚀 **Bot Updated!** New changes pulled and bot restarted.'
+                    : '✅ **Bot Restarted.** Already up-to-date with GitHub.';
+                await channel.send(message).catch(() => null);
+            }
+            fs.unlinkSync(restartFile);
+        } catch (err) {
+            console.error('[Startup] Failed to process restart context:', err.message);
+        }
+    }
+
     console.log('Registering global slash commands...');
     const commandsData = client.commands.map(c => c.data);
     
@@ -88,7 +113,7 @@ client.on('interactionCreate', async interaction => {
         const connection = getVoiceConnection(interaction.guild.id);
         
         if (!connection || !connection.state.subscription) {
-            return interaction.reply({ content: "❌ No active audio stream to control!", ephemeral: true });
+            return interaction.reply({ content: "No active audio stream to control!", ephemeral: true });
         }
 
         const player = connection.state.subscription.player;
@@ -109,7 +134,7 @@ client.on('interactionCreate', async interaction => {
                 await interaction.deferReply({ ephemeral: true });
                 const queue = interaction.client.queues.get(interaction.guild.id);
                 if (!queue || queue.songs.length === 0) {
-                    return interaction.followUp({ content: '❌ Nothing is currently playing.' });
+                    return interaction.followUp({ content: 'Nothing is currently playing.' });
                 }
 
                 const track = queue.songs[0];
