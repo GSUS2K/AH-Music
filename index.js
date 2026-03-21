@@ -18,7 +18,7 @@ if (fs.existsSync(systemYtdlp)) {
     process.env.YOUTUBE_DL_PATH = localYtdlp;
     console.log('[Startup] Using local @distube yt-dlp:', localYtdlp);
 } else {
-    console.log('[Startup] No dedicated yt-dlp binary found, using default PATH');
+    console.log('[Startup] Using npm bundled fallback (might be slow)');
 }
 
 const { Client, GatewayIntentBits, Collection, EmbedBuilder, SlashCommandBuilder } = require('discord.js');

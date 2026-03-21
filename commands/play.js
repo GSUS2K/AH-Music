@@ -31,58 +31,33 @@ module.exports = {
             let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
             const MUSIC_CHAPTER_REGEX = /music|song|start|feeka|sukoon|play/i;
 
-            // Use yt-dlp directly with a verified absolute path
+            // Use yt-dlp for search and metadata
              try {
-                const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
                 const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
-                
-                // Use python3 to execute the yt-dlp script explicitly (resolves ENOENT)
-                const { promisify } = require('util');
-                const execFilePromise = promisify(require('child_process').execFile);
-                const { stdout } = await execFilePromise('python3', [
-                    ytdlpPath,
-                    '--dump-single-json',
-                    '--no-check-certificates',
-                    '--no-warnings',
-                    urlQuery
-                ], { timeout: 15000 });
-                
-                const data = JSON.parse(stdout);
-                
-                // Search results return an entries array
-                const entry = data.entries ? data.entries[0] : data;
-                if (!entry) throw new Error('No entries found in yt-dlp output');
-
+                const info = await youtubedl(urlQuery, { 
+                    dumpSingleJson: true, noCheckCertificates: true, noWarnings: true
+                });
+                const entry = info.entries ? info.entries[0] : info;
+                if (!entry) throw new Error('No results');
                 title = entry.title || 'Unknown Track';
                 thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
                 author = entry.uploader || 'Unknown Artist';
                 actualUrl = entry.webpage_url || query;
-                const isLive = entry.is_live || entry.live_status === 'is_live';
-                totalDurationMs = isLive ? 0 : (entry.duration || 0) * 1000;
-                youtubeId = entry.id || null;
-                
-                // Check chapters for intro offset
+                totalDurationMs = (entry.is_live || entry.live_status === 'is_live') ? 0 : (entry.duration || 0) * 1000;
+                youtubeId = entry.id;
+
+                // Check for chapters to find intro offset
                 if (entry.chapters && entry.chapters.length > 0) {
                     const musicChapter = entry.chapters.find(c => MUSIC_CHAPTER_REGEX.test(c.title));
                     if (musicChapter && musicChapter.start_time > 0) {
                         introOffsetMs = musicChapter.start_time * 1000;
+                        console.log(`[Lyrics] Detected intro offset from chapter: ${introOffsetMs}ms (${musicChapter.title})`);
                     }
                 }
-
-                 // Update status: Found
-                 await interaction.editReply({ 
-                     embeds: [new EmbedBuilder()
-                         .setTitle('ᴛʀᴀᴄᴋ ꜰᴏᴜɴᴅ')
-                         .setDescription(`Found: **${title}**\n*Joining voice channel...*`)
-                         .setColor(0x2B2D31)] 
-                 }).catch(() => null);
-             } catch (searchErr) {
+            } catch (searchErr) {
                 console.error('[Play] yt-dlp search failed:', searchErr.message);
-                const errorMsg = searchErr.message.includes('timeout') 
-                    ? 'Request timed out (YouTube responded too slowly).'
-                    : `Request failed: ${searchErr.message.split('\n')[0].substring(0, 100)}`;
-                return interaction.editReply({ content: `❌ ${errorMsg}` });
-             }
+                return interaction.editReply({ content: "❌ Request failed - could not find the song or it may be private." });
+            }
 
             const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId, introOffsetMs };
 
@@ -128,24 +103,16 @@ module.exports = {
                     guildId: interaction.guild.id,
                     adapterCreator: interaction.guild.voiceAdapterCreator
                 });
-                 await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
-                 queueConstruct.connection = connection;
+                await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
+                queueConstruct.connection = connection;
 
-                 // Update status: Connected
-                 await interaction.editReply({ 
-                     embeds: [new EmbedBuilder()
-                         .setTitle('ᴄᴏɴɴᴇᴄᴛᴇᴅ')
-                         .setDescription(`Connected to <#${channel.id}>.\n*Preparing high-fidelity stream...*`)
-                         .setColor(0x2B2D31)] 
-                 }).catch(() => null);
+                playNextSong(interaction.guild.id, queueMap, interaction);
 
-                 playNextSong(interaction.guild.id, queueMap, interaction);
-
-             } catch (err) {
-                 console.error(err);
-                 queueMap.delete(interaction.guild.id);
-                 return interaction.editReply({ content: "Could not join the voice channel. Please check permissions." });
-             }
+            } catch (err) {
+                console.error(err);
+                queueMap.delete(interaction.guild.id);
+                return interaction.followUp("❌ Could not join the voice channel.");
+            }
 
         } catch (e) {
             console.error(e);
@@ -367,21 +334,11 @@ async function playNextSong(guildId, queueMap, interaction) {
     try {
         if (isLive) {
             // Get the direct m3u8 playlist URL from yt-dlp (no ffmpeg needed for this)
-            // Get the direct m3u8 playlist URL from yt-dlp
-            const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
-            // Use python3 to execute the yt-dlp script
-            const { promisify } = require('util');
-            const execFilePromise = promisify(require('child_process').execFile);
-            const { stdout: m3u8Url } = await execFilePromise('python3', [
-                ytdlpPath,
-                '--get-url',
-                '--no-check-certificates',
-                '-f', 'best[protocol=m3u8_native]/best',
-                track.actualUrl
-            ], { timeout: 10000 }).catch((e) => {
-                console.warn('[HLS] m3u8 fetch error:', e.message);
-                return { stdout: '' };
-            });
+            const m3u8Url = await youtubedl(track.actualUrl, {
+                getUrl: true,
+                f: 'best[protocol=m3u8_native]/best',
+                noCheckCertificates: true
+            }).catch(() => null);
 
             if (m3u8Url) {
                 const { PassThrough } = require('stream');
@@ -455,15 +412,12 @@ async function playNextSong(guildId, queueMap, interaction) {
                 console.error('[Stream] Failed to get live stream URL');
             }
         } else {
-            const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
-            const proc = require('child_process').spawn('python3', [
-                ytdlpPath,
-                track.actualUrl,
-                '-o', '-',
-                '-q', '',
-                '-f', 'bestaudio[ext=webm]/bestaudio/best',
-                '--no-check-certificates'
-            ], { stdio: ['ignore', 'pipe', 'pipe'] });
+            const proc = youtubedl.exec(track.actualUrl, {
+                o: '-',
+                q: '',
+                f: 'bestaudio[ext=webm]/bestaudio/best',
+                noCheckCertificates: true
+            }, { stdio: ['ignore', 'pipe', 'pipe'] });
 
             proc.stderr.on('data', (data) => {
                 const msg = data.toString();
