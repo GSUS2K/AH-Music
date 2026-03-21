@@ -435,27 +435,23 @@ async function playNextSong(guildId, queueMap, interaction) {
             console.log(`[Player Status] ${oldState.status} -> ${newState.status}`);
         }
     });
-
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-    const row = new ActionRowBuilder();
-    
-    row.addComponents(
+    const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('pause_resume').setLabel('⏯️ Pause / Resume').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('⏭️ Skip').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('skip').setLabel('⏭️ Skip').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('stop').setLabel('⏹️ Stop').setStyle(ButtonStyle.Danger)
+    );
+    
+    const row2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('sync_minus').setLabel('⏪ Sync -1s').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('sync_plus').setLabel('⏩ Sync +1s').setStyle(ButtonStyle.Secondary)
     );
 
-    // Only show download for non-live tracks
     if (!isLive) {
-        row.addComponents(
+        row2.addComponents(
             new ButtonBuilder().setCustomId('download').setLabel('⬇️ Download').setStyle(ButtonStyle.Success)
         );
     }
-
-    row.addComponents(
-        new ButtonBuilder().setCustomId('sync_minus').setLabel('⏪ Sync -1s').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('sync_plus').setLabel('⏩ Sync +1s').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('stop').setLabel('⏹️ Stop').setStyle(ButtonStyle.Danger)
-    );
 
 
     const durationStr = track.totalDurationMs === 0 ? 'LIVE' : `${Math.floor(track.totalDurationMs / 60000)}:${Math.floor((track.totalDurationMs % 60000) / 1000).toString().padStart(2, '0')}`;
@@ -524,11 +520,14 @@ async function playNextSong(guildId, queueMap, interaction) {
             .setColor(0x23272A);
     };
 
+    const rows = [row1];
+    if (row2.components.length > 0) rows.push(row2);
+
     let replyMessage;
     if (interaction) {
-         replyMessage = await interaction.followUp({ embeds: [generateEmbed(0)], components: [row], fetchReply: true }).catch(() => null);
+         replyMessage = await interaction.followUp({ embeds: [generateEmbed(0)], components: rows, fetchReply: true }).catch(() => null);
     } else {
-         replyMessage = await queue.textChannel.send({ embeds: [generateEmbed(0)], components: [row] }).catch(() => null);
+         replyMessage = await queue.textChannel.send({ embeds: [generateEmbed(0)], components: rows }).catch(() => null);
     }
 
     let lastKnownLyricIndex = -1;
