@@ -58,7 +58,10 @@ client.once('clientReady', async () => {
             const context = JSON.parse(fs.readFileSync(restartFile, 'utf8'));
             const channel = await client.channels.fetch(context.channelId).catch(() => null);
             if (channel) {
-                await channel.send('✅ **Bot is back online!** Code successfully pulled and restarted.').catch(() => null);
+                const message = context.updated 
+                    ? '🚀 **Bot Updated!** New changes pulled and bot restarted.'
+                    : '✅ **Bot Restarted.** Already up-to-date with GitHub.';
+                await channel.send(message).catch(() => null);
             }
             fs.unlinkSync(restartFile);
         } catch (err) {
@@ -105,7 +108,7 @@ client.on('interactionCreate', async interaction => {
         const connection = getVoiceConnection(interaction.guild.id);
         
         if (!connection || !connection.state.subscription) {
-            return interaction.reply({ content: "❌ No active audio stream to control!", ephemeral: true });
+            return interaction.reply({ content: "No active audio stream to control!", ephemeral: true });
         }
 
         const player = connection.state.subscription.player;
@@ -126,7 +129,7 @@ client.on('interactionCreate', async interaction => {
                 await interaction.deferReply({ ephemeral: true });
                 const queue = interaction.client.queues.get(interaction.guild.id);
                 if (!queue || queue.songs.length === 0) {
-                    return interaction.followUp({ content: '❌ Nothing is currently playing.' });
+                    return interaction.followUp({ content: 'Nothing is currently playing.' });
                 }
 
                 const track = queue.songs[0];

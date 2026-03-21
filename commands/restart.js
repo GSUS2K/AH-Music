@@ -13,25 +13,28 @@ module.exports = {
             return interaction.reply({ content: 'You are not authorized to use this command.', ephemeral: true });
         }
 
-        await interaction.reply({ content: 'Pulling latest code and restarting bot...', ephemeral: true });
+        await interaction.reply({ content: 'Initiating deployment sequence...', ephemeral: true });
         
-        // Save context for startup notification
-        try {
-            fs.writeFileSync('./.restart_context.json', JSON.stringify({
-                channelId: interaction.channelId,
-                timestamp: Date.now()
-            }));
-        } catch (err) {
-            console.error('[Restart] Failed to save context:', err.message);
-        }
-
-        exec('git pull && pm2 restart AH-Music', (err, stdout, stderr) => {
-            if (err) {
-                console.error('[Restart] Error:', err.message);
-                console.error('[Restart] Stderr:', stderr);
-                return;
+        exec('git pull', (err, stdout, stderr) => {
+            const isUpdated = err ? false : !stdout.includes('Already up to date');
+            
+            // Save context with update status
+            try {
+                fs.writeFileSync('./.restart_context.json', JSON.stringify({
+                    channelId: interaction.channelId,
+                    updated: isUpdated,
+                    timestamp: Date.now()
+                }));
+            } catch (fsErr) {
+                console.error('[Restart] Failed to save context:', fsErr.message);
             }
-            console.log('[Restart] Success:', stdout);
+
+            console.log('[Restart] Pull Result:', stdout || stderr);
+
+            // Trigger actual restart
+            exec('pm2 restart AH-Music', (pm2Err) => {
+                if (pm2Err) console.error('[Restart] PM2 Failure:', pm2Err.message);
+            });
         });
     }
 };
