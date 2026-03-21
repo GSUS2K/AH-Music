@@ -25,12 +25,10 @@ module.exports = {
             const MUSIC_CHAPTER_REGEX = /music|song|start|feeka|sukoon|play/i;
 
             // Use yt-dlp for search and metadata
-            try {
-                const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+             try {
                 const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
                 const info = await youtubedl(urlQuery, { 
-                    dumpSingleJson: true, noCheckCertificates: true, noWarnings: true,
-                    ffmpegLocation: ffmpegPath
+                    dumpSingleJson: true, noCheckCertificates: true, noWarnings: true
                 });
                 const entry = info.entries ? info.entries[0] : info;
                 if (!entry) throw new Error('No results');
@@ -186,13 +184,11 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQue
 
 async function fetchYouTubeSubtitles(url) {
     try {
-        const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
         const json = await youtubedl(url, {
             dumpSingleJson: true,
             writeAutoSubs: true,
             noCheckCertificates: true,
-            noWarnings: true,
-            ffmpegLocation: ffmpegPath
+            noWarnings: true
         }).catch(() => null);
 
         if (!json) return null;
@@ -286,10 +282,9 @@ async function playNextSong(guildId, queueMap, interaction) {
         try {
             await queue.textChannel.send({ content: "🔄 Generating the next Up-Next Autoplay track natively..." }).catch(() => null);
             const mixUrl = `https://www.youtube.com/watch?v=${queue.lastPlayedId}&list=RD${queue.lastPlayedId}`;
-            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
             const info = await youtubedl(mixUrl, { 
                 dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, 
-                playlistItems: '2', extractAudio: true, ffmpegLocation: ffmpegPath
+                playlistItems: '2', extractAudio: true
             }).catch(() => null);
             
             const entry = info && info.entries ? info.entries[0] : null;
@@ -327,15 +322,13 @@ async function playNextSong(guildId, queueMap, interaction) {
 
     const isLive = track.totalDurationMs === 0;
 
-    // Stream directly via yt-dlp
+    // Stream directly via yt-dlp (uses system ffmpeg)
     try {
-        const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
         const proc = youtubedl.exec(track.actualUrl, {
             o: '-',
             q: '',
             f: isLive ? '95/94/93/bestaudio/best' : 'bestaudio/best',
-            noCheckCertificates: true,
-            ffmpegLocation: ffmpegPath
+            noCheckCertificates: true
         }, { stdio: ['ignore', 'pipe', 'pipe'] });
 
         proc.stderr.on('data', (data) => {
