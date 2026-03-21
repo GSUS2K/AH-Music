@@ -54,7 +54,11 @@ module.exports = {
                 // Fallback to yt-dlp for non-YouTube or failed searches
                 console.warn('play-dl search failed, falling back to yt-dlp:', searchErr.message);
                 const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
-                const info = await youtubedl(urlQuery, { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true }).catch(() => null);
+                const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+                const info = await youtubedl(urlQuery, { 
+                    dumpSingleJson: true, noCheckCertificates: true, noWarnings: true,
+                    ffmpegLocation: ffmpegPath
+                }).catch(() => null);
                 if (!info) return interaction.followUp("❌ Request failed, could not find the song or it may be private - check the URL.");
                 const entry = info.entries ? info.entries[0] : info;
                 title = entry.title || 'Unknown Track';
@@ -205,11 +209,13 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQue
 
 async function fetchYouTubeSubtitles(url) {
     try {
+        const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
         const json = await youtubedl(url, {
             dumpSingleJson: true,
             writeAutoSubs: true,
             noCheckCertificates: true,
             noWarnings: true,
+            ffmpegLocation: ffmpegPath
         }).catch(() => null);
 
         if (!json) return null;
@@ -303,7 +309,11 @@ async function playNextSong(guildId, queueMap, interaction) {
         try {
             await queue.textChannel.send({ content: "🔄 Generating the next Up-Next Autoplay track natively..." }).catch(() => null);
             const mixUrl = `https://www.youtube.com/watch?v=${queue.lastPlayedId}&list=RD${queue.lastPlayedId}`;
-            const info = await youtubedl(mixUrl, { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, playlistItems: '2', extractAudio: true }).catch(() => null);
+            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+            const info = await youtubedl(mixUrl, { 
+                dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, 
+                playlistItems: '2', extractAudio: true, ffmpegLocation: ffmpegPath
+            }).catch(() => null);
             
             const entry = info && info.entries ? info.entries[0] : null;
             if (entry && entry.id) {
@@ -345,8 +355,11 @@ async function playNextSong(guildId, queueMap, interaction) {
     if (isLive) {
         console.log(`[Stream] Live stream detected, using stable yt-dlp pipe: ${track.title}`);
         try {
+            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+            
             const proc = youtubedl.exec(track.actualUrl, {
                 o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+                ffmpegLocation: ffmpegPath
             }, { stdio: ['ignore', 'pipe', 'ignore'] });
 
             const { StreamType } = require('@discordjs/voice');
