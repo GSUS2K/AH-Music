@@ -12,11 +12,14 @@ module.exports = {
                 .setDescription('The song URL or search query')
                 .setRequired(true)),
     async execute(interaction) {
+        const query = interaction.options.getString('query');
+        return module.exports.handlePlay(interaction, query);
+    },
+    async handlePlay(interaction, query) {
         const channel = interaction.member.voice.channel;
         if (!channel) return interaction.reply({ content: 'You are not connected to a voice channel!', ephemeral: true });
         
-        await interaction.deferReply();
-        const query = interaction.options.getString('query');
+        if (!interaction.deferred && !interaction.replied) await interaction.deferReply();
 
         try {
             let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
