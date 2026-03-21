@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const playDl = require('play-dl');
+const youtubedl = require('youtube-dl-exec');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -22,18 +22,18 @@ module.exports = {
         try {
             let streamUrl = input;
             
-            // If not a URL, search YouTube for a matching live stream
+            // If not a URL, search YouTube for a matching live stream using yt-dlp
             if (!input.startsWith('http')) {
-                const results = await playDl.search(`${input} live`, {
-                    source: { youtube: 'video' },
-                    limit: 3
-                });
+                const info = await youtubedl(`ytsearch1:${input} live`, {
+                    dumpSingleJson: true,
+                    noCheckCertificates: true,
+                    noWarnings: true
+                }).catch(() => null);
+
+                const entry = info?.entries?.[0] || info;
+                if (!entry) return interaction.followUp("No results found for that radio station.");
                 
-                // Find a result that is actually live, or take the first one
-                const liveResult = results.find(r => r.live) || results[0];
-                if (!liveResult) return interaction.followUp("❌ No results found for that radio station.");
-                
-                streamUrl = liveResult.url;
+                streamUrl = entry.webpage_url || entry.url;
             }
 
             console.log(`[Radio] Delegating live stream to play engine: ${streamUrl}`);

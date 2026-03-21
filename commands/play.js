@@ -325,24 +325,69 @@ async function playNextSong(guildId, queueMap, interaction) {
     // Stream directly via yt-dlp (uses system ffmpeg)
     try {
         if (isLive) {
-            // For live streams: get the direct URL then pipe via Node.js to avoid ffmpeg entirely
-            const streamUrl = await youtubedl(track.actualUrl, {
+            // Get the direct m3u8 playlist URL from yt-dlp (no ffmpeg needed for this)
+            const m3u8Url = await youtubedl(track.actualUrl, {
                 getUrl: true,
                 f: 'best[protocol=m3u8_native]/best',
                 noCheckCertificates: true
             }).catch(() => null);
 
-            if (streamUrl) {
+            if (m3u8Url) {
+                const { PassThrough } = require('stream');
                 const https = require('https');
                 const http = require('http');
-                const { PassThrough } = require('stream');
                 const pass = new PassThrough();
-                const client = streamUrl.trim().startsWith('https') ? https : http;
-                client.get(streamUrl.trim(), (res) => res.pipe(pass)).on('error', (e) => {
-                    console.error(`[Stream] Live pipe error: ${e.message}`);
+
+                const getUrl = (url) => new Promise((resolve, reject) => {
+                    const client = url.startsWith('https') ? https : http;
+                    client.get(url, (res) => {
+                        const chunks = [];
+                        res.on('data', c => chunks.push(c));
+                        res.on('end', () => resolve(Buffer.concat(chunks)));
+                        res.on('error', reject);
+                    }).on('error', reject);
                 });
+
+                // Parse and stream HLS segments without ffmpeg
+                let lastSeg = null;
+                let stopped = false;
+
+                const pollHLS = async () => {
+                    while (!stopped) {
+                        try {
+                            const buf = await getUrl(m3u8Url.trim());
+                            const text = buf.toString();
+                            const base = m3u8Url.trim().split('/').slice(0, -1).join('/');
+                            const segs = text.split('\n')
+                                .map(l => l.trim())
+                                .filter(l => l && !l.startsWith('#'));
+
+                            for (const seg of segs) {
+                                const segUrl = seg.startsWith('http') ? seg : `${base}/${seg}`;
+                                if (segUrl !== lastSeg) {
+                                    lastSeg = segUrl;
+                                    try {
+                                        const data = await getUrl(segUrl);
+                                        if (!pass.destroyed && !pass.writableEnded) {
+                                            pass.write(data);
+                                        }
+                                    } catch (e) {
+                                        console.error('[HLS] Segment error:', e.message);
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.error('[HLS] Playlist error:', e.message);
+                        }
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                };
+
+                pollHLS();
+                pass.on('close', () => { stopped = true; });
+
                 resource = createAudioResource(pass);
-                console.log('[Stream] Live: piping direct URL via Node.js (no ffmpeg)');
+                console.log('[Stream] Live: HLS segment streamer started (no ffmpeg)');
             } else {
                 console.error('[Stream] Failed to get live stream URL');
             }
