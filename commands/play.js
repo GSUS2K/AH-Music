@@ -437,9 +437,9 @@ async function playNextSong(guildId, queueMap, interaction) {
     });
 
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume Playback').setEmoji('⏯').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('Skip Current Track').setEmoji('⏭').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('stop').setLabel('Stop and Clear Queue').setEmoji('⏹').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume Playback').setEmoji('⏯️').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('skip').setLabel('Skip Current Track').setEmoji('⏭️').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('stop').setLabel('Stop and Clear Queue').setEmoji('⏹️').setStyle(ButtonStyle.Danger)
     );
     
     const row2 = new ActionRowBuilder().addComponents(
@@ -449,7 +449,7 @@ async function playNextSong(guildId, queueMap, interaction) {
 
     if (!isLive) {
         row2.addComponents(
-            new ButtonBuilder().setCustomId('download').setLabel('Download Audio File').setEmoji('⬇').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId('download').setLabel('Download Audio File').setEmoji('⬇️').setStyle(ButtonStyle.Success)
         );
     }
 
@@ -522,25 +522,38 @@ async function playNextSong(guildId, queueMap, interaction) {
     };
 
     const rows = [row1];
-    if (row2.components.length > 0) rows.push(row2);
+    if (row2.components.length > 0) {
+        rows.push(row2);
+    }
 
     let replyMessage;
     try {
         if (interaction) {
-            console.log(`[Interaction] Attempting followUp for ${track.title}...`);
-            replyMessage = await interaction.followUp({ embeds: [generateEmbed(0)], components: rows, fetchReply: true });
-            console.log(`[Interaction] SUCCESS: FollowUp sent.`);
+            console.log(`[Interaction] Rendering playback embed for: ${track.title}`);
+            const embed = generateEmbed(0);
+            
+            // Try to edit the "thinking" reply first
+            try {
+                replyMessage = await interaction.editReply({ 
+                    embeds: [embed], 
+                    components: rows 
+                });
+                console.log(`[Interaction] SUCCESS: Player embed sent.`);
+            } catch (editError) {
+                console.warn(`[Interaction] editReply failed, trying followUp:`, editError.message);
+                replyMessage = await interaction.followUp({ 
+                    embeds: [embed], 
+                    components: rows 
+                }).catch(e => console.error(`[Interaction] FATAL: followUp also failed:`, e.message));
+            }
         } else {
             console.log(`[Queue] Sending channel message for ${track.title}...`);
             replyMessage = await queue.textChannel.send({ embeds: [generateEmbed(0)], components: rows });
         }
-    } catch (err) {
-        console.error('[Interaction Error] FAILED to send embed:', err);
-        // Fallback simple message
+    } catch (sendError) {
+        console.error('[Playback] Critical send failure:', sendError);
         if (interaction) {
-            await interaction.followUp({ content: `🎵 **Now Playing**: ${track.title}` }).catch(e => console.error('[Fatal Error] FollowUp fallback failed:', e));
-        } else {
-            await queue.textChannel.send({ content: `🎵 **Now Playing**: ${track.title}` }).catch(() => null);
+            await interaction.followUp({ content: `Now Playing: **${track.title}** (The premium embed failed to load, please check logs).` }).catch(() => null);
         }
     }
 
