@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, entersState, VoiceConnectionStatus, AudioPlayerStatus } = require('@discordjs/voice');
 const youtubedl = require('youtube-dl-exec');
+const playDl = require('play-dl');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -18,22 +19,41 @@ module.exports = {
         const query = interaction.options.getString('query');
 
         try {
-            let urlQuery = query;
-            if (!query.startsWith('http')) {
-                urlQuery = `ytsearch1:${query}`;
-            }
-            
-            const info = await youtubedl(urlQuery, { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, extractAudio: true }).catch(() => null);
-            if (!info) return interaction.followUp("❌ Request failed, could not find the song or it may be private - check the URL.");
-            const entry = info.entries ? info.entries[0] : info;
-            
-            const title = entry.title || "Unknown Track";
-            const thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
-            const author = entry.uploader || "Unknown Artist";
-            const actualUrl = entry.webpage_url || query;
-            const totalDurationMs = (entry.duration || 0) * 1000;
+            let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId;
 
-            const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId: entry.id };
+            // Use play-dl for lightning-fast search (no process spawning)
+            try {
+                let videoInfo;
+                if (query.startsWith('http')) {
+                    const info = await playDl.video_info(query);
+                    videoInfo = info.video_details;
+                } else {
+                    const results = await playDl.search(query, { source: { youtube: 'video' }, limit: 1 });
+                    videoInfo = results[0];
+                }
+                if (!videoInfo) throw new Error('No results');
+                title = videoInfo.title || 'Unknown Track';
+                thumbnail = videoInfo.thumbnails?.[0]?.url || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                author = videoInfo.channel?.name || 'Unknown Artist';
+                actualUrl = videoInfo.url;
+                totalDurationMs = (videoInfo.durationInSec || 0) * 1000;
+                youtubeId = videoInfo.id;
+            } catch (searchErr) {
+                // Fallback to yt-dlp for non-YouTube or failed searches
+                console.warn('play-dl search failed, falling back to yt-dlp:', searchErr.message);
+                const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
+                const info = await youtubedl(urlQuery, { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true }).catch(() => null);
+                if (!info) return interaction.followUp("❌ Request failed, could not find the song or it may be private - check the URL.");
+                const entry = info.entries ? info.entries[0] : info;
+                title = entry.title || 'Unknown Track';
+                thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                author = entry.uploader || 'Unknown Artist';
+                actualUrl = entry.webpage_url || query;
+                totalDurationMs = (entry.duration || 0) * 1000;
+                youtubeId = entry.id;
+            }
+
+            const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId };
 
             const queueMap = interaction.client.queues;
             let serverQueue = queueMap.get(interaction.guild.id);
@@ -82,6 +102,7 @@ module.exports = {
         }
     }
 };
+
 
 async function playNextSong(guildId, queueMap, interaction) {
     const queue = queueMap.get(guildId);
