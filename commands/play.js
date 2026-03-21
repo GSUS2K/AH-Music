@@ -437,19 +437,19 @@ async function playNextSong(guildId, queueMap, interaction) {
     });
 
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume Playback').setEmoji('⏯️').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('Skip Current Track').setEmoji('⏭️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('stop').setLabel('Stop and Clear Queue').setEmoji('⏹️').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume').setEmoji('⏯️').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('skip').setLabel('Skip Track').setEmoji('⏭️').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('stop').setLabel('Stop & Clear').setEmoji('⏹️').setStyle(ButtonStyle.Danger)
     );
     
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('sync_minus').setLabel('Adjust Sync -1.0s').setEmoji('⏪').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('sync_plus').setLabel('Adjust Sync +1.0s').setEmoji('⏩').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('sync_minus').setLabel('Sync -1.0s').setEmoji('⏪').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('sync_plus').setLabel('Sync +1.0s').setEmoji('⏩').setStyle(ButtonStyle.Secondary)
     );
 
     if (!isLive) {
         row2.addComponents(
-            new ButtonBuilder().setCustomId('download').setLabel('Download Audio File').setEmoji('⬇️').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId('download').setLabel('Download Audio').setEmoji('⬇️').setStyle(ButtonStyle.Success)
         );
     }
 
@@ -468,93 +468,61 @@ async function playNextSong(guildId, queueMap, interaction) {
     }
 
     const generateEmbed = (currentMs) => {
-        try {
-            const totalBars = 45; // Maximize width
-            const progress = track.totalDurationMs > 0 ? Math.min(currentMs / track.totalDurationMs, 1) : 0;
-            const progressIndex = Math.floor(progress * totalBars);
-            
-            let bar = '';
-            for (let i = 0; i < totalBars; i++) {
-                if (i < progressIndex) bar += '▓';
-                else if (i === progressIndex) bar += '█';
-                else bar += '░';
-            }
-
-            const currentStr = `${Math.floor(currentMs / 60000)}:${Math.floor((currentMs % 60000) / 1000).toString().padStart(2, '0')}`;
-            const reqValue = track.requester === 'Autoplay' ? 'Autoplay' : `<@${track.requester}>`;
-
-            let description = `**${track.title}**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
-
-            if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
-                const manualOffsetMs = queue.lyricOffsetMs || 0;
-                const autoOffsetMs = track.introOffsetMs || 0;
-                const offsetMs = autoOffsetMs + manualOffsetMs;
-                const adjustedMs = currentMs - offsetMs;
-                const lines = syncedLyrics.lyrics;
-                const index = lines.findLastIndex(l => l.time <= adjustedMs);
-                
-                if (index !== -1) {
-                    const prev = lines[index - 1] ? `\n*${lines[index - 1].text}*` : "";
-                    const current = `\n**${lines[index].text}**`;
-                    const next = lines[index + 1] ? `\n*${lines[index + 1].text}*` : "";
-                    description += `\n\n🎵 **Lyrics**\n${prev}${current}${next}`;
-                } else if (adjustedMs < 0) {
-                    description += `\n\n🎵 **Lyrics**\n*... Intro ...*`;
-                }
-
-                if (manualOffsetMs !== 0) {
-                    const offsetSec = (manualOffsetMs / 1000).toFixed(1);
-                    description += `\n\n\`Sync Offset: ${offsetSec > 0 ? '+' : ''}${offsetSec}s\``;
-                }
-            }
-
-            description += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 **Requested by**: ${reqValue}  |  🔊 **Channel**: ${queue.voiceChannel ? `<#${queue.voiceChannel.id}>` : 'Unknown'}`;
-
-            return new EmbedBuilder()
-                .setTitle('Now Playing')
-                .setDescription(description.substring(0, 4000))
-                .setThumbnail(track.thumbnail)
-                .setColor(0x2B2D31);
-        } catch (e) {
-            console.error('[Embed Error]', e);
-            return new EmbedBuilder().setTitle('Playback starting...').setDescription(track.title).setColor(0x2B2D31);
+        const totalBars = 30; // Longer bar to fill width
+        const progress = track.totalDurationMs > 0 ? Math.min(currentMs / track.totalDurationMs, 1) : 0;
+        const progressIndex = Math.floor(progress * totalBars);
+        
+        let bar = '';
+        for (let i = 0; i < totalBars; i++) {
+            if (i === progressIndex) bar += '🔵';
+            else bar += '▬';
         }
+
+        const currentStr = `${Math.floor(currentMs / 60000)}:${Math.floor((currentMs % 60000) / 1000).toString().padStart(2, '0')}`;
+        const reqValue = track.requester === 'Autoplay' ? 'Autoplay' : `<@${track.requester}>`;
+
+        let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
+
+        if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
+            const manualOffsetMs = queue.lyricOffsetMs || 0;
+            const autoOffsetMs = track.introOffsetMs || 0;
+            const offsetMs = autoOffsetMs + manualOffsetMs;
+            const adjustedMs = currentMs - offsetMs;
+            const lines = syncedLyrics.lyrics;
+            const index = lines.findLastIndex(l => l.time <= adjustedMs);
+            
+            if (index !== -1) {
+                const prev = lines[index - 1] ? `\n*${lines[index - 1].text}*` : "";
+                const current = `\n**${lines[index].text}**`;
+                const next = lines[index + 1] ? `\n*${lines[index + 1].text}*` : "";
+                description += `\n\n🎵 **Lyrics**\n${prev}${current}${next}`;
+            } else if (adjustedMs < 0) {
+                description += `\n\n🎵 **Lyrics**\n*... Intro ...*`;
+            }
+
+            if (manualOffsetMs !== 0) {
+                const offsetSec = (manualOffsetMs / 1000).toFixed(1);
+                description += `\n\n\`Sync Offset: ${offsetSec > 0 ? '+' : ''}${offsetSec}s\``;
+            }
+        }
+
+        description += `\n\n👤 **Requested by**: ${reqValue}  |  🔊 **Channel**: <#${queue.voiceChannel.id}>`;
+
+        return new EmbedBuilder()
+            .setTitle('Now Playing')
+            .setDescription(description)
+            .setThumbnail(track.thumbnail)
+            .setColor(0x2B2D31);
     };
 
     const rows = [row1];
-    if (row2.components.length > 0) {
-        rows.push(row2);
-    }
+    if (row2.components.length > 0) rows.push(row2);
 
     let replyMessage;
-    try {
-        if (interaction) {
-            console.log(`[Interaction] Rendering playback embed for: ${track.title}`);
-            const embed = generateEmbed(0);
-            
-            // Try to edit the "thinking" reply first
-            try {
-                replyMessage = await interaction.editReply({ 
-                    embeds: [embed], 
-                    components: rows 
-                });
-                console.log(`[Interaction] SUCCESS: Player embed sent.`);
-            } catch (editError) {
-                console.warn(`[Interaction] editReply failed, trying followUp:`, editError.message);
-                replyMessage = await interaction.followUp({ 
-                    embeds: [embed], 
-                    components: rows 
-                }).catch(e => console.error(`[Interaction] FATAL: followUp also failed:`, e.message));
-            }
-        } else {
-            console.log(`[Queue] Sending channel message for ${track.title}...`);
-            replyMessage = await queue.textChannel.send({ embeds: [generateEmbed(0)], components: rows });
-        }
-    } catch (sendError) {
-        console.error('[Playback] Critical send failure:', sendError);
-        if (interaction) {
-            await interaction.followUp({ content: `Now Playing: **${track.title}** (The premium embed failed to load, please check logs).` }).catch(() => null);
-        }
+    if (interaction) {
+         replyMessage = await interaction.editReply({ embeds: [generateEmbed(0)], components: rows, fetchReply: true }).catch(() => null);
+    } else {
+         replyMessage = await queue.textChannel.send({ embeds: [generateEmbed(0)], components: rows }).catch(() => null);
     }
 
     let lastKnownLyricIndex = -1;
