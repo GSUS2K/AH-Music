@@ -48,7 +48,7 @@ for (const file of commandFiles) {
     }
 }
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
 
     // Check for restart context
