@@ -69,57 +69,46 @@ module.exports = {
             const { spawn } = require('child_process');
 
             const startRadioStream = async (url) => {
-                // Try play-dl first (often very fast and reliable for YouTube live)
+                const { StreamType } = require('@discordjs/voice');
+                
+                // Try play-dl first (same logic as play.js which we know works)
                 try {
-                    console.log(`[Radio] Attempting play-dl stream for: ${url}`);
-                    const stream = await playDl.stream(url);
+                    console.log(`[Radio] play-dl attempt: ${url}`);
+                    const stream = await playDl.stream(url, { quality: 2 });
                     return createAudioResource(stream.stream, { inputType: stream.type });
                 } catch (playDlErr) {
-                    console.warn(`[Radio] play-dl stream failed, trying ffmpeg HLS fallback: ${playDlErr.message}`);
+                    console.warn(`[Radio] play-dl failed: ${playDlErr.message}`);
                 }
 
-                // Step 1: Get the real HLS/manifest URL from yt-dlp
-                const manifestResult = await youtubedl(url, {
-                    f: 'bestaudio/best',
-                    getUrl: true,
-                    noCheckCertificates: true,
-                    noWarnings: true,
-                }).catch(() => null);
+                // Fallback: ffmpeg to Opus (native Discord format)
+                try {
+                    console.log(`[Radio] ffmpeg-opus fallback: ${url}`);
+                    // We can use yt-dlp to get the best audio URL then pipe to ffmpeg
+                    const manifestUrl = await youtubedl(url, {
+                        f: 'bestaudio/best', getUrl: true, noCheckCertificates: true, noWarnings: true,
+                    }).catch(() => url);
 
-                const manifestUrl = typeof manifestResult === 'string'
-                    ? manifestResult.trim().split('\n')[0]
-                    : null;
-
-                if (manifestUrl) {
-                    console.log(`[Radio] Found manifest URL: ${manifestUrl.substring(0, 100)}...`);
-                    // Step 2: Pipe the HLS stream through ffmpeg → raw PCM for Discord
-                    const { StreamType } = require('@discordjs/voice');
                     const ffmpeg = spawn(ffmpegPath, [
-                        '-reconnect', '1',
-                        '-reconnect_streamed', '1',
-                        '-reconnect_delay_max', '5',
-                        '-i', manifestUrl,
-                        '-vn',          // no video
-                        '-f', 's16le',  // raw PCM output
+                        '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
+                        '-i', manifestUrl.trim(),
+                        '-vn',
+                        '-acodec', 'libopus',
+                        '-f', 'opus',
                         '-ar', '48000',
                         '-ac', '2',
                         'pipe:1'
                     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
-                    ffmpeg.stderr.on('data', (data) => {
-                        const msg = data.toString();
-                        if (msg.includes('Error') || msg.includes('fail')) console.error(`[Radio FFMPEG] ${msg}`);
+                    ffmpeg.stderr.on('data', (d) => {
+                        const m = d.toString();
+                        if (m.includes('Error') || m.includes('fail')) console.error(`[Radio FFMPEG] ${m}`);
                     });
 
-                    return createAudioResource(ffmpeg.stdout, { inputType: StreamType.Raw });
+                    return createAudioResource(ffmpeg.stdout, { inputType: StreamType.OggOpus });
+                } catch (err) {
+                    console.error(`[Radio] All fallbacks failed: ${err.message}`);
+                    return null;
                 }
-
-                // Fallback: pipe yt-dlp stdout directly
-                console.warn("[Radio] No manifest URL, falling back to direct yt-dlp pipe");
-                const proc = youtubedl.exec(url, {
-                    o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
-                }, { stdio: ['ignore', 'pipe', 'ignore'] });
-                return createAudioResource(proc.stdout);
             };
 
             const resource = await startRadioStream(streamUrl);
