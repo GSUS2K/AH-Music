@@ -65,6 +65,18 @@ module.exports = {
             });
             connection.subscribe(player);
             
+            player.on('stateChange', (oldState, newState) => {
+                console.log(`[Radio Player] State changed: ${oldState.status} -> ${newState.status}`);
+                if (newState.status === 'idle' && oldState.status !== 'idle') {
+                    console.log(`[Radio Player] Reason for idle: ${newState.reason || 'None provided'}`);
+                }
+            });
+
+            player.on('error', error => {
+                console.error(`[Radio Player] Error: ${error.message}`);
+                console.error(error);
+            });
+            
             const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
             const { spawn } = require('child_process');
 
