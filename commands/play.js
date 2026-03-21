@@ -363,7 +363,15 @@ async function playNextSong(guildId, queueMap, interaction) {
                 f: '95/94/93/bestaudio/best', 
                 'no-check-certificates': true,
                 ffmpegLocation: ffmpegPath
-            }, { stdio: ['ignore', 'pipe', 'ignore'] });
+            }, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+            proc.stderr.on('data', (data) => {
+                console.warn(`[Stream] [yt-dlp stderr] ${data.toString().trim()}`);
+            });
+
+            proc.on('exit', (code) => {
+                if (code !== 0 && code !== null) console.warn(`[Stream] yt-dlp process exited with code ${code}`);
+            });
 
             const { StreamType } = require('@discordjs/voice');
             resource = createAudioResource(proc.stdout, { inputType: StreamType.Arbitrary });
@@ -388,6 +396,17 @@ async function playNextSong(guildId, queueMap, interaction) {
     }
 
     player.play(resource);
+
+    player.on('error', error => {
+        console.error(`[Player Error] ${error.message} - skipping track...`);
+        player.stop(); // This will trigger Idle and shift
+    });
+
+    player.on('stateChange', (oldState, newState) => {
+        if (newState.status !== oldState.status) {
+            console.log(`[Player Status] ${oldState.status} -> ${newState.status}`);
+        }
+    });
 
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
     const row = new ActionRowBuilder();
@@ -511,6 +530,7 @@ async function playNextSong(guildId, queueMap, interaction) {
     }, 1000);
 
     player.on(AudioPlayerStatus.Idle, () => {
+        console.log(`[Queue] Track ended/skipped. Next up...`);
         clearInterval(progressInterval);
         queue.songs.shift(); 
         playNextSong(guildId, queueMap, null);
