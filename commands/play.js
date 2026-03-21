@@ -436,10 +436,11 @@ async function playNextSong(guildId, queueMap, interaction) {
         }
     });
 
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume').setEmoji('⏯️').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('Skip Track').setEmoji('⏭️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('stop').setLabel('Stop & Clear').setEmoji('⏹️').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume').setEmoji('⏯').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('skip').setLabel('Skip Track').setEmoji('⏭').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('stop').setLabel('Stop & Clear').setEmoji('⏹').setStyle(ButtonStyle.Danger)
     );
     
     const row2 = new ActionRowBuilder().addComponents(
@@ -449,7 +450,7 @@ async function playNextSong(guildId, queueMap, interaction) {
 
     if (!isLive) {
         row2.addComponents(
-            new ButtonBuilder().setCustomId('download').setLabel('Download Audio').setEmoji('⬇️').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId('download').setLabel('Download Audio').setEmoji('⬇').setStyle(ButtonStyle.Success)
         );
     }
 
@@ -527,10 +528,23 @@ async function playNextSong(guildId, queueMap, interaction) {
     if (row2.components.length > 0) rows.push(row2);
 
     let replyMessage;
-    if (interaction) {
-         replyMessage = await interaction.followUp({ embeds: [generateEmbed(0)], components: rows, fetchReply: true }).catch(() => null);
-    } else {
-         replyMessage = await queue.textChannel.send({ embeds: [generateEmbed(0)], components: rows }).catch(() => null);
+    try {
+        if (interaction) {
+            console.log(`[Interaction] Attempting followUp for ${track.title}...`);
+            replyMessage = await interaction.followUp({ embeds: [generateEmbed(0)], components: rows, fetchReply: true });
+            console.log(`[Interaction] SUCCESS: FollowUp sent.`);
+        } else {
+            console.log(`[Queue] Sending channel message for ${track.title}...`);
+            replyMessage = await queue.textChannel.send({ embeds: [generateEmbed(0)], components: rows });
+        }
+    } catch (err) {
+        console.error('[Interaction Error] FAILED to send embed:', err);
+        // Fallback simple message
+        if (interaction) {
+            await interaction.followUp({ content: `🎵 **Now Playing**: ${track.title}` }).catch(e => console.error('[Fatal Error] FollowUp fallback failed:', e));
+        } else {
+            await queue.textChannel.send({ content: `🎵 **Now Playing**: ${track.title}` }).catch(() => null);
+        }
     }
 
     let lastKnownLyricIndex = -1;
