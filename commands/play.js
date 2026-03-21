@@ -125,16 +125,24 @@ async function playNextSong(guildId, queueMap, interaction) {
     queue.player = player;
     queue.connection.subscribe(player);
 
-    const startYtdl = (url) => {
-        const process = youtubedl.exec(url, {
-            o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
-        }, {
-            stdio: ['ignore', 'pipe', 'ignore']
-        });
-        return process.stdout;
-    };
+    const playDl = require('play-dl');
+    let resource;
+    try {
+        const stream = await playDl.stream(track.actualUrl);
+        resource = createAudioResource(stream.stream, { inputType: stream.type });
+    } catch (e) {
+        console.warn("play-dl failed, falling back to youtubedl:", e.message);
+        const startYtdl = (url) => {
+            const process = youtubedl.exec(url, {
+                o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+            }, {
+                stdio: ['ignore', 'pipe', 'ignore']
+            });
+            return process.stdout;
+        };
+        resource = createAudioResource(startYtdl(track.actualUrl));
+    }
 
-    const resource = createAudioResource(startYtdl(track.actualUrl));
     player.play(resource);
 
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');

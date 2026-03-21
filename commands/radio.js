@@ -39,23 +39,30 @@ module.exports = {
             connection.subscribe(player);
             
             const startYtdl = (url) => {
-                const process = youtubedl.exec(url, {
-                    o: '-',
-                    q: '',
-                    f: 'bestaudio/best',
-                    'no-check-certificates': true,
-                }, {
-                    stdio: ['ignore', 'pipe', 'ignore']
-                });
-                return process.stdout;
+                const proc = youtubedl.exec(url, {
+                    o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+                }, { stdio: ['ignore', 'pipe', 'ignore'] });
+                return proc.stdout;
             };
 
-            const resource = createAudioResource(startYtdl(query));
+            const playDl = require('play-dl');
+
+            const getResource = async (url) => {
+                try {
+                    const stream = await playDl.stream(url);
+                    return createAudioResource(stream.stream, { inputType: stream.type });
+                } catch (e) {
+                    console.warn("Radio: play-dl failed, falling back to yt-dlp:", e.message);
+                    return createAudioResource(startYtdl(url));
+                }
+            };
+
+            const resource = await getResource(query);
             player.play(resource);
 
-            player.on(AudioPlayerStatus.Idle, () => {
+            player.on(AudioPlayerStatus.Idle, async () => {
                 try {
-                    player.play(createAudioResource(startYtdl(query)));
+                    player.play(await getResource(query));
                 } catch(e) {
                     console.error("Radio Stream Restart Failed:", e);
                 }
