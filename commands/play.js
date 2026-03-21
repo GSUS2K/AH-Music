@@ -434,22 +434,21 @@ async function playNextSong(guildId, queueMap, interaction) {
         if (newState.status !== oldState.status) {
             console.log(`[Player Status] ${oldState.status} -> ${newState.status}`);
         }
-    });
-    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    });    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('pause_resume').setLabel('⏯️ Pause / Resume').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('⏭️ Skip').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('stop').setLabel('⏹️ Stop').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('pause_resume').setLabel('⏯️ STATE').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('skip').setLabel('⏭️ NEXT').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('stop').setLabel('⏹️ TERMINATE').setStyle(ButtonStyle.Danger)
     );
     
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('sync_minus').setLabel('⏪ Sync -1s').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('sync_plus').setLabel('⏩ Sync +1s').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('sync_minus').setLabel('⏪ L-SYNC').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('sync_plus').setLabel('⏩ R-SYNC').setStyle(ButtonStyle.Secondary)
     );
 
     if (!isLive) {
         row2.addComponents(
-            new ButtonBuilder().setCustomId('download').setLabel('⬇️ Download').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId('download').setLabel('⬇️ EXPORT').setStyle(ButtonStyle.Success)
         );
     }
 
@@ -468,26 +467,27 @@ async function playNextSong(guildId, queueMap, interaction) {
     }
 
     const generateEmbed = (currentMs) => {
-        const totalBars = 20;
+        const totalBars = 15;
         const progress = track.totalDurationMs > 0 ? Math.min(currentMs / track.totalDurationMs, 1) : 0;
         const progressIndex = Math.floor(progress * totalBars);
         
         let bar = '';
         for (let i = 0; i < totalBars; i++) {
-            if (i === progressIndex) bar += '●';
-            else bar += '━';
+            if (i < progressIndex) bar += '▓';
+            else if (i === progressIndex) bar += '█';
+            else bar += '░';
         }
 
         const currentStr = `${Math.floor(currentMs / 60000)}:${Math.floor((currentMs % 60000) / 1000).toString().padStart(2, '0')}`;
-        const reqValue = track.requester === 'Autoplay' ? 'Autoplay' : `<@${track.requester}>`;
+        const reqValue = track.requester === 'Autoplay' ? 'SYSTEM' : `<@${track.requester}>`;
 
-        let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
+        let description = `『 **${track.title.toUpperCase()}** 』\n*by ${track.author}*\n\n\`[ ${currentStr} / ${durationStr} ]\`\n${bar}`;
 
         if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
             const manualOffsetMs = queue.lyricOffsetMs || 0;
             if (manualOffsetMs !== 0) {
                 const offsetSec = (manualOffsetMs / 1000).toFixed(1);
-                description += `\n\`[Sync: ${offsetSec > 0 ? '+' : ''}${offsetSec}s]\``;
+                description += `\n\`SIGNAL SYNC: ${offsetSec > 0 ? '+' : ''}${offsetSec}s\``;
             }
 
             const autoOffsetMs = track.introOffsetMs || 0;
@@ -500,21 +500,21 @@ async function playNextSong(guildId, queueMap, interaction) {
                 const prev = lines[index - 1] ? `\n*${lines[index - 1].text}*` : "";
                 const current = `\n**${lines[index].text}**`;
                 const next = lines[index + 1] ? `\n*${lines[index + 1].text}*` : "";
-                description += `\n\n**Lyrics**\n${prev}${current}${next}`;
+                description += `\n\n**◈ DATA STREAM**\n${prev}${current}${next}`;
             } else if (adjustedMs < 0) {
-                description += `\n\n**Lyrics**\n*... Intro ...*`;
+                description += `\n\n**◈ DATA STREAM**\n*... INITIALIZING ...*`;
             }
         }
 
         return new EmbedBuilder()
-            .setTitle('Now playing')
+            .setTitle('ɴᴏᴡ ᴘʟᴀʏɪɴɢ')
             .setDescription(description)
             .setThumbnail(track.thumbnail)
             .addFields(
-                { name: 'Requested by', value: reqValue, inline: true },
-                { name: 'Channel', value: `<#${queue.voiceChannel.id}>`, inline: true }
+                { name: 'USER', value: reqValue, inline: true },
+                { name: 'NODE', value: `<#${queue.voiceChannel.id}>`, inline: true }
             )
-            .setColor(0x2B2D31); // Modern Discord background-matching grey
+            .setColor(0x00FFFF); // Neon Cyan
     };
 
     const rows = [row1];
