@@ -1,125 +1,50 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, entersState, VoiceConnectionStatus } = require('@discordjs/voice');
-const youtubedl = require('youtube-dl-exec');
+const { SlashCommandBuilder } = require('discord.js');
+const playDl = require('play-dl');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('radio')
-        .setDescription('Start a 24/7 continuous stream (YouTube Live)')
+        .setDescription('Start a 24/7 live radio — use a URL or search by keyword (e.g. lofi, jazz, synthwave)')
         .addStringOption(option => 
             option.setName('query')
-                .setDescription('The URL of the continuous stream')
+                .setDescription('YouTube Live URL or a keyword like "lofi", "jazz radio", etc.')
                 .setRequired(true)),
     async execute(interaction) {
+        // Import the play logic directly
+        const music = require('./play.js');
         const channel = interaction.member.voice.channel;
+        
         if (!channel) return interaction.reply({ content: 'You are not connected to a voice channel!', ephemeral: true });
         
         await interaction.deferReply();
-        const url = interaction.options.getString('query');
+        const input = interaction.options.getString('query');
 
         try {
-            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-            const info = await youtubedl(url, { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true }).catch(() => null);
-            const title = info?.title || "YouTube Live Stream";
-            const author = info?.uploader || "Unknown Channel";
-            const thumbnail = info?.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
-
-            const connection = joinVoiceChannel({
-                channelId: channel.id,
-                guildId: interaction.guild.id,
-                adapterCreator: interaction.guild.voiceAdapterCreator
-            });
-
-            await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
-
-            const player = createAudioPlayer({
-                behaviors: {
-                    noSubscriber: 'pause',
-                },
-            });
-            connection.subscribe(player);
+            let streamUrl = input;
             
-            const startYtdl = (streamUrl) => {
-                return youtubedl.exec(streamUrl, {
-                    o: '-',
-                    q: '',
-                    f: 'bestaudio/best',
-                    'no-check-certificates': true,
-                    ffmpegLocation: ffmpegPath
-                }, {
-                    stdio: ['ignore', 'pipe', 'ignore']
-                }).stdout;
-            };
-
-            const resource = createAudioResource(startYtdl(url));
-            player.play(resource);
-
-            player.on(AudioPlayerStatus.Idle, () => {
-                try {
-                    player.play(createAudioResource(startYtdl(url)));
-                } catch(e) {
-                    console.error("[Radio] Stream Restart Failed:", e);
-                }
-            });
-
-            const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('pause_resume')
-                        .setLabel('Pause / Resume')
-                        .setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder()
-                        .setCustomId('stop')
-                        .setLabel('Stop')
-                        .setStyle(ButtonStyle.Danger)
-                );
-
-            let position = 0;
-            let direction = 1;
-            const totalBars = 25;
-
-            const generateEmbed = () => {
-                let bar = '';
-                for (let i = 0; i < totalBars; i++) {
-                    if (i === position) bar += '🔵';
-                    else bar += '▬';
-                }
+            // If not a URL, search YouTube for a matching live stream
+            if (!input.startsWith('http')) {
+                const results = await playDl.search(`${input} live`, {
+                    source: { youtube: 'video' },
+                    limit: 3
+                });
                 
-                position += direction;
-                if (position >= totalBars - 1) direction = -1;
-                if (position <= 0) direction = 1;
+                // Find a result that is actually live, or take the first one
+                const liveResult = results.find(r => r.live) || results[0];
+                if (!liveResult) return interaction.followUp("❌ No results found for that radio station.");
+                
+                streamUrl = liveResult.url;
+            }
 
-                return new EmbedBuilder()
-                    .setTitle('Live Radio')
-                    .setDescription(`**[${title}](${url})**\n*by ${author}*\n\n\`🔴 LIVE\` ${bar}`)
-                    .setThumbnail(thumbnail)
-                    .addFields(
-                        { name: 'Requested by', value: `<@${interaction.user.id}>`, inline: true },
-                        { name: 'Channel', value: `<#${channel.id}>`, inline: true }
-                    )
-                    .setColor(0x23272A);
-            };
-
-            const replyMessage = await interaction.followUp({ embeds: [generateEmbed()], components: [row], fetchReply: true });
-
-            const progressInterval = setInterval(async () => {
-                if (!connection || connection.state.status === VoiceConnectionStatus.Destroyed) {
-                    clearInterval(progressInterval);
-                    return;
-                }
-                if (player.state.status === 'playing') {
-                    try {
-                        await replyMessage.edit({ embeds: [generateEmbed()] });
-                    } catch (err) {
-                        clearInterval(progressInterval);
-                    }
-                }
-            }, 4_000);
+            console.log(`[Radio] Delegating live stream to play engine: ${streamUrl}`);
+            
+            // This reuses the exact same queue and player logic that makes /play work!
+            // It will also benefit from the title cleaning and lyrics search.
+            return music.handlePlay(interaction, streamUrl);
 
         } catch (e) {
-            console.error(e);
-            return interaction.followUp(`Something went wrong: ${e.message}`);
+            console.error('[Radio Error]', e);
+            return interaction.followUp(`❌ Failed to start radio: ${e.message}`);
         }
     }
 };

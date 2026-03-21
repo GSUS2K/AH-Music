@@ -1,88 +1,103 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, entersState } = require('@discordjs/voice');
-const playDl = require('play-dl');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, entersState, VoiceConnectionStatus, AudioPlayerStatus } = require('@discordjs/voice');
 const youtubedl = require('youtube-dl-exec');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const playDl = require('play-dl');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('play')
-        .setDescription('Play a song from YouTube or SoundCloud')
+        .setDescription('Play a song from any source')
         .addStringOption(option => 
             option.setName('query')
-                .setDescription('The song title or URL')
+                .setDescription('The song URL or search query')
                 .setRequired(true)),
     async execute(interaction) {
         const query = interaction.options.getString('query');
-        return this.handlePlay(interaction, query);
+        return module.exports.handlePlay(interaction, query);
     },
-
     async handlePlay(interaction, query) {
         const channel = interaction.member.voice.channel;
         if (!channel) return interaction.reply({ content: 'You are not connected to a voice channel!', ephemeral: true });
-
-        if (interaction.deferred || interaction.replied) {
-            // Already handled
-        } else {
-            await interaction.deferReply();
-        }
+        
+        if (!interaction.deferred && !interaction.replied) await interaction.deferReply();
 
         try {
-            let track = null;
-            
-            // 1. Search for the track
-            if (query.startsWith('http')) {
-                const info = await youtubedl(query, { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true }).catch(() => null);
-                if (info) {
-                    track = {
-                        title: info.title || "Unknown Track",
-                        thumbnail: info.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png',
-                        author: info.uploader || "Unknown Artist",
-                        actualUrl: info.webpage_url || query,
-                        totalDurationMs: (info.duration || 0) * 1000,
-                        query: query,
-                        requester: interaction.user.id,
-                        youtubeId: info.id
-                    };
+            let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
+            const MUSIC_CHAPTER_REGEX = /music|song|start|feeka|sukoon|play/i;
+
+            // Use play-dl for lightning-fast search (no process spawning)
+            try {
+                let videoInfo;
+                if (query.startsWith('http')) {
+                    const info = await playDl.video_info(query);
+                    videoInfo = info.video_details;
+                    // Check for chapters to find intro offset
+                    if (videoInfo.chapters && videoInfo.chapters.length > 0) {
+                        const musicChapter = videoInfo.chapters.find(c => MUSIC_CHAPTER_REGEX.test(c.title));
+                        if (musicChapter && musicChapter.start_time > 0) {
+                            introOffsetMs = musicChapter.start_time * 1000;
+                            console.log(`[Lyrics] Detected intro offset from chapter: ${introOffsetMs}ms (${musicChapter.title})`);
+                        }
+                    }
+                } else {
+                    const results = await playDl.search(query, { source: { youtube: 'video' }, limit: 1 });
+                    videoInfo = results[0];
                 }
-            } else {
-                const results = await playDl.search(query, { limit: 1 });
-                if (results.length > 0) {
-                    const res = results[0];
-                    track = {
-                        title: res.title,
-                        thumbnail: res.thumbnails[0]?.url,
-                        author: res.channel?.name || "Unknown Artist",
-                        actualUrl: res.url,
-                        totalDurationMs: res.durationInSec * 1000,
-                        query: query,
-                        requester: interaction.user.id,
-                        youtubeId: res.id
-                    };
+                if (!videoInfo) throw new Error('No results');
+                title = videoInfo.title || 'Unknown Track';
+                thumbnail = videoInfo.thumbnails?.[0]?.url || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                author = videoInfo.channel?.name || 'Unknown Artist';
+                actualUrl = videoInfo.url;
+                totalDurationMs = (videoInfo.durationInSec || 0) * 1000;
+                youtubeId = videoInfo.id;
+            } catch (searchErr) {
+                // Fallback to yt-dlp for non-YouTube or failed searches
+                console.warn('play-dl search failed, falling back to yt-dlp:', searchErr.message);
+                const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
+                const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+                const info = await youtubedl(urlQuery, { 
+                    dumpSingleJson: true, noCheckCertificates: true, noWarnings: true,
+                    ffmpegLocation: ffmpegPath
+                }).catch(() => null);
+                if (!info) return interaction.followUp("❌ Request failed, could not find the song or it may be private - check the URL.");
+                const entry = info.entries ? info.entries[0] : info;
+                title = entry.title || 'Unknown Track';
+                thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                author = entry.uploader || 'Unknown Artist';
+                actualUrl = entry.webpage_url || query;
+                totalDurationMs = (entry.duration || 0) * 1000;
+                youtubeId = entry.id;
+
+                if (entry.chapters && entry.chapters.length > 0) {
+                    const musicChapter = entry.chapters.find(c => MUSIC_CHAPTER_REGEX.test(c.title));
+                    if (musicChapter && musicChapter.start_time > 0) {
+                        introOffsetMs = musicChapter.start_time * 1000;
+                        console.log(`[Lyrics] Detected intro offset from yt-dlp chapter: ${introOffsetMs}ms`);
+                    }
                 }
             }
 
-            if (!track) return interaction.followUp("Request failed - check the URL or try a search term.");
-
-            // 2. Identify Chapters (for auto-offset)
-            try {
-                const info = await youtubedl(track.actualUrl, { dumpSingleJson: true, noCheckCertificates: true }).catch(() => null);
-                if (info && info.chapters && info.chapters.length > 0) {
-                    const firstChapter = info.chapters[0];
-                    if (firstChapter.title.toLowerCase().includes('intro') || firstChapter.start_time === 0) {
-                         if (info.chapters.length > 1) track.introOffsetMs = info.chapters[1].start_time * 1000;
-                    }
-                }
-            } catch (e) { /* ignore */ }
+            const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId, introOffsetMs };
 
             const queueMap = interaction.client.queues;
             let serverQueue = queueMap.get(interaction.guild.id);
+
+            // If a queue exists but the connection is destroyed, clear it and start fresh
+            if (serverQueue) {
+                const connState = serverQueue.connection?.state?.status;
+                const isAlive = connState && connState !== VoiceConnectionStatus.Destroyed;
+                if (!isAlive) {
+                    console.log('[Queue] Stale queue detected, clearing and restarting...');
+                    queueMap.delete(interaction.guild.id);
+                    serverQueue = null;
+                }
+            }
 
             if (serverQueue) {
                 serverQueue.songs.push(track);
                 const addEmbed = new EmbedBuilder()
                     .setTitle('Added to Queue')
-                    .setDescription(`**[${track.title}](${track.actualUrl})**\nPosition: **${serverQueue.songs.length - 1}**`)
+                    .setDescription(`**[${track.title}](${track.actualUrl})**\nPosition in queue: **${serverQueue.songs.length - 1}**`)
                     .setThumbnail(track.thumbnail)
                     .setColor(0x0099FF);
                 return interaction.followUp({ embeds: [addEmbed] });
@@ -95,8 +110,7 @@ module.exports = {
                 player: null,
                 songs: [track],
                 playing: true,
-                lastPlayedId: null,
-                lyricOffsetMs: 0
+                lastPlayedId: null
             };
             queueMap.set(interaction.guild.id, queueConstruct);
 
@@ -114,7 +128,7 @@ module.exports = {
             } catch (err) {
                 console.error(err);
                 queueMap.delete(interaction.guild.id);
-                return interaction.followUp("Could not join the voice channel.");
+                return interaction.followUp("❌ Could not join the voice channel.");
             }
 
         } catch (e) {
@@ -124,89 +138,66 @@ module.exports = {
     }
 };
 
-async function fetchYouTubeSubtitles(videoUrl) {
-    try {
-        const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-        console.log(`[Lyrics] Checking YouTube captions for: ${videoUrl}`);
-        
-        const info = await youtubedl(videoUrl, {
-            dumpSingleJson: true,
-            noCheckCertificates: true,
-            ffmpegLocation: ffmpegPath
-        }).catch(() => null);
-
-        if (!info || !info.subtitles) return null;
-
-        const subs = info.subtitles.en || info.automatic_captions?.en;
-        if (!subs) return null;
-
-        const vttUrl = subs.find(s => s.ext === 'vtt' || s.ext === 'json3')?.url;
-        if (!vttUrl) return null;
-
-        const response = await fetch(vttUrl);
-        if (!response.ok) return null;
-        const content = await response.text();
-
-        console.log(`[Lyrics] YouTube captions found`);
-        return parseVTT(content);
-    } catch (e) {
-        console.error('[Lyrics] YouTube subtitle error:', e.message);
-        return null;
-    }
-}
-
-function parseVTT(vttContent) {
-    const lines = vttContent.split('\n');
-    const lyrics = [];
-    let currentItem = null;
-
-    for (const line of lines) {
-        const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}:\d{2}\.\d{3})/);
-        if (timeMatch) {
-            const start = timeMatch[1];
-            const [hh, mm, ss] = start.split(':');
-            const timeMs = (parseInt(hh) * 3600 + parseInt(mm) * 60 + parseFloat(ss)) * 1000;
-            currentItem = { time: timeMs, text: '' };
-        } else if (currentItem && line.trim() && !line.match(/^[0-9]+$/)) {
-            currentItem.text = line.trim().replace(/<[^>]*>/g, '');
-            lyrics.push(currentItem);
-            currentItem = null;
-        }
-    }
-    return lyrics;
-}
 
 async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQuery, videoUrl) {
+    console.log(`[Lyrics] Fetching: "${trackName}" by "${artistName}" (${durationSec}s)`);
     try {
-        const clean = (s) => s.split('(')[0].split('[')[0].split('-')[0].split('ft.')[0].trim();
-        const t = clean(trackName);
-        const a = clean(artistName);
+        let artist = artistName.replace(' - Topic', '').trim();
+        let track = trackName.replace(/\(.*\)|\[.*\]|\|.*/g, '').trim();
 
-        // 1. Try direct LRCLIB search
-        const searchUrl = `https://lrclib.net/api/search?track_name=${encodeURIComponent(t)}&artist_name=${encodeURIComponent(a)}&duration=${Math.floor(durationSec)}`;
-        let response = await fetch(searchUrl);
+        if (trackName.includes(' - ')) {
+            const parts = trackName.split(' - ');
+            artist = parts[0].trim();
+            track = parts[1].replace(/\(.*\)|\[.*\]|\|.*/g, '').trim();
+        }
+
+        const queryUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(track)}&artist_name=${encodeURIComponent(artist)}&duration=${Math.floor(durationSec)}`;
+        
+        let response = await fetch(queryUrl);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.syncedLyrics) return { lyrics: parseLRC(data.syncedLyrics), duration: data.duration };
+        }
+
+        // Search fallback 1: Using extracted metadata
+        const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${track}`)}`;
+        response = await fetch(searchUrl);
         if (response.ok) {
             const results = await response.json();
             const best = results
                 .filter(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60)
                 .sort((a, b) => Math.abs(a.duration - durationSec) - Math.abs(b.duration - durationSec))[0];
-            if (best) return { lyrics: parseLRC(best.syncedLyrics) };
+
+            if (best) {
+                console.log(`[Lyrics] Search fallback found: "${best.trackName}" (${best.duration}s)`);
+                return { lyrics: parseLRC(best.syncedLyrics), duration: best.duration };
+            }
         }
 
-        // 2. Try simple search fallback
-        const simpleUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(t + ' ' + a)}`;
-        response = await fetch(simpleUrl);
-        if (response.ok) {
-            const results = await response.json();
-            const best = results
-                .filter(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60)
-                .sort((a, b) => Math.abs(a.duration - durationSec) - Math.abs(b.duration - durationSec))[0];
-            if (best) return { lyrics: parseLRC(best.syncedLyrics) };
+        // Search fallback 2: Using the user's original query (if it's not a URL)
+        if (originalQuery && !originalQuery.startsWith('http')) {
+            console.log(`[Lyrics] Trying final query fallback: "${originalQuery}"`);
+            const finalSearchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(originalQuery)}`;
+            response = await fetch(finalSearchUrl);
+            if (response.ok) {
+                const results = await response.json();
+                const best = results
+                    .filter(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60)
+                    .sort((a, b) => Math.abs(a.duration - durationSec) - Math.abs(b.duration - durationSec))[0];
+
+                if (best) {
+                    console.log(`[Lyrics] Query fallback found: "${best.trackName}" (${best.duration}s)`);
+                    return { lyrics: parseLRC(best.syncedLyrics), duration: best.duration };
+                }
+            }
         }
 
-        // 3. Try YouTube Subtitles
-        const ytSubs = await fetchYouTubeSubtitles(videoUrl);
-        if (ytSubs) return { lyrics: ytSubs };
+        // Search fallback 3: YouTube Subtitles/Captions
+        if (videoUrl && videoUrl.includes('youtube.com')) {
+            console.log(`[Lyrics] No synced lyrics on LRCLIB, checking YouTube subtitles...`);
+            const ytSubs = await fetchYouTubeSubtitles(videoUrl);
+            if (ytSubs) return ytSubs;
+        }
 
         return null;
     } catch (error) {
@@ -215,18 +206,97 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQue
     }
 }
 
-function parseLRC(lrcContent) {
-    const lines = lrcContent.split('\n');
+
+async function fetchYouTubeSubtitles(url) {
+    try {
+        const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+        const json = await youtubedl(url, {
+            dumpSingleJson: true,
+            writeAutoSubs: true,
+            noCheckCertificates: true,
+            noWarnings: true,
+            ffmpegLocation: ffmpegPath
+        }).catch(() => null);
+
+        if (!json) return null;
+
+        const subs = json.subtitles || {};
+        const autoSubs = json.automatic_captions || {};
+        
+        // Find best English track (manual preferred over auto)
+        const enKey = Object.keys(subs).find(k => k.startsWith('en')) || 
+                     Object.keys(autoSubs).find(k => k.startsWith('en'));
+        
+        if (!enKey) return null;
+
+        const formats = subs[enKey] || autoSubs[enKey];
+        const vttFormat = formats.find(f => f.ext === 'vtt');
+        if (!vttFormat) return null;
+
+        const response = await fetch(vttFormat.url);
+        if (!response.ok) return null;
+        
+        const vttText = await response.text();
+        const lyrics = parseVTT(vttText);
+        
+        if (lyrics.length > 0) {
+            console.log(`[Lyrics] YouTube captions found (${enKey})`);
+            return { lyrics, duration: json.duration };
+        }
+    } catch (err) {
+        console.warn(`[Lyrics] YouTube sub fetch failed: ${err.message}`);
+    }
+    return null;
+}
+
+function parseVTT(vtt) {
+    const lines = vtt.split('\n');
     const lyrics = [];
-    for (const line of lines) {
-        const match = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/);
+    const timeRegex = /(\d{2}:\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}:\d{2}\.\d{3})/;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        const match = timeRegex.exec(line);
         if (match) {
-            const mm = parseInt(match[1]);
-            const ss = parseInt(match[2]);
-            const ms = parseInt(match[3].padEnd(3, '0'));
-            const timeMs = mm * 60000 + ss * 1000 + ms;
-            const text = match[4].trim();
-            if (text) lyrics.push({ time: timeMs, text });
+            const startStr = match[1];
+            const parts = startStr.split(':');
+            const hours = parseInt(parts[0]);
+            const minutes = parseInt(parts[1]);
+            const seconds = parseFloat(parts[2]);
+            const timeMs = (hours * 3600 + minutes * 60 + seconds) * 1000;
+            
+            let text = "";
+            let j = i + 1;
+            while (j < lines.length && lines[j].trim() !== "" && !timeRegex.test(lines[j])) {
+                text += (text ? " " : "") + lines[j].trim();
+                j++;
+            }
+            if (text) {
+                const cleanText = text.replace(/<[^>]*>/g, '').replace(/^- |^\[|\]$/g, '').trim();
+                if (cleanText) lyrics.push({ time: timeMs, text: cleanText });
+            }
+            i = j - 1;
+        }
+    }
+    return lyrics;
+}
+
+
+function parseLRC(lrc) {
+    const lines = lrc.split('\n');
+    const lyrics = [];
+    const timeRegex = /\[(\d+):(\d+\.\d+)\]/;
+
+    for (const line of lines) {
+        const match = timeRegex.exec(line);
+        if (match) {
+            const minutes = parseInt(match[1]);
+            const seconds = parseFloat(match[2]);
+            const timeMs = (minutes * 60 + seconds) * 1000;
+            const text = line.split(']').slice(1).join(']').trim();
+            if (text) {
+                lyrics.push({ time: timeMs, text });
+            }
         }
     }
     return lyrics;
@@ -234,6 +304,35 @@ function parseLRC(lrcContent) {
 
 async function playNextSong(guildId, queueMap, interaction) {
     const queue = queueMap.get(guildId);
+    
+    if (queue && queue.songs.length === 0 && queue.lastPlayedId) {
+        try {
+            await queue.textChannel.send({ content: "🔄 Generating the next Up-Next Autoplay track natively..." }).catch(() => null);
+            const mixUrl = `https://www.youtube.com/watch?v=${queue.lastPlayedId}&list=RD${queue.lastPlayedId}`;
+            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+            const info = await youtubedl(mixUrl, { 
+                dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, 
+                playlistItems: '2', extractAudio: true, ffmpegLocation: ffmpegPath
+            }).catch(() => null);
+            
+            const entry = info && info.entries ? info.entries[0] : null;
+            if (entry && entry.id) {
+                queue.songs.push({
+                    title: entry.title || "Autoplay Track",
+                    thumbnail: entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png',
+                    author: entry.uploader || "YouTube Autoplay",
+                    actualUrl: entry.webpage_url || `https://www.youtube.com/watch?v=${entry.id}`,
+                    totalDurationMs: (entry.duration || 0) * 1000,
+                    query: mixUrl,
+                    requester: 'Autoplay',
+                    youtubeId: entry.id
+                });
+            }
+        } catch (err) {
+            console.error("Autoplay generation failed:", err);
+        }
+    }
+
     if (!queue || queue.songs.length === 0) {
         if (queue && queue.connection) queue.connection.destroy();
         queueMap.delete(guildId);
@@ -250,64 +349,121 @@ async function playNextSong(guildId, queueMap, interaction) {
     queue.connection.subscribe(player);
 
     const isLive = track.totalDurationMs === 0;
-    let resource;
 
-    // Simplified fallback streaming (Proven on VM)
+    // Unified streaming logic: Try play-dl first, then fall back to robust yt-dlp pipe
     try {
+        // play-dl usually works for regular YouTube and SoundCloud
         const stream = await playDl.stream(track.actualUrl, { quality: isLive ? undefined : 2 });
         resource = createAudioResource(stream.stream, { inputType: stream.type });
+        console.log(`[Stream] play-dl streaming: ${track.title} (Live: ${isLive})`);
     } catch (e) {
-        console.warn(`[Stream] play-dl failed, using yt-dlp fallback: ${e.message}`);
-        const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-        const proc = youtubedl.exec(track.actualUrl, {
-            o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
-            ffmpegLocation: ffmpegPath
-        }, { stdio: ['ignore', 'pipe', 'ignore'] });
-        resource = createAudioResource(proc.stdout);
+        console.warn(`[Stream] play-dl failed, using robust yt-dlp pipe: ${e.message}`);
+        try {
+            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+            const proc = youtubedl.exec(track.actualUrl, {
+                o: '-',
+                q: '',
+                f: isLive ? '95/94/93/bestaudio/best' : 'bestaudio/best',
+                noCheckCertificates: true,
+                ffmpegLocation: ffmpegPath
+            }, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+            proc.stderr.on('data', (data) => {
+                const msg = data.toString();
+                if (msg.includes('Error') || msg.includes('Failed')) console.error(`[Stream] [yt-dlp log] ${msg.trim()}`);
+            });
+
+            // Wait for first chunk for live streams to prevent skip
+            if (isLive) {
+                await new Promise((resolve) => {
+                    proc.stdout.once('data', () => {
+                        console.log('[Stream] SUCCESS: Received live data from yt-dlp.');
+                        resolve();
+                    });
+                    setTimeout(() => resolve(), 10000);
+                });
+            }
+
+            const { StreamType } = require('@discordjs/voice');
+            resource = createAudioResource(proc.stdout, { inputType: StreamType.Arbitrary });
+        } catch (err) {
+            console.error(`[Stream] Final fallback failed: ${err.message}`);
+        }
     }
 
     player.play(resource);
 
-    player.on('error', error => console.error(`[Player Error] ${error.message}`));
-    player.on('stateChange', (oldState, newState) => {
-        if (newState.status !== oldState.status) console.log(`[Player Status] ${oldState.status} -> ${newState.status}`);
+    player.on('error', error => {
+        console.error(`[Player Error] ${error.message} - skipping track...`);
+        player.stop(); // This will trigger Idle and shift
     });
 
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('Skip').setStyle(ButtonStyle.Secondary)
+    player.on('stateChange', (oldState, newState) => {
+        if (newState.status !== oldState.status) {
+            console.log(`[Player Status] ${oldState.status} -> ${newState.status}`);
+        }
+    });
+
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const row = new ActionRowBuilder();
+    
+    row.addComponents(
+        new ButtonBuilder().setCustomId('pause_resume').setLabel('⏯️ Pause / Resume').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('skip').setLabel('⏭️ Skip').setStyle(ButtonStyle.Secondary)
     );
 
+    // Only show download for non-live tracks
     if (!isLive) {
-        row.addComponents(new ButtonBuilder().setCustomId('download').setLabel('Download').setStyle(ButtonStyle.Success));
+        row.addComponents(
+            new ButtonBuilder().setCustomId('download').setLabel('⬇️ Download').setStyle(ButtonStyle.Success)
+        );
     }
 
-    row.addComponents(new ButtonBuilder().setCustomId('stop').setLabel('Stop').setStyle(ButtonStyle.Danger));
+    row.addComponents(
+        new ButtonBuilder().setCustomId('stop').setLabel('⏹️ Stop').setStyle(ButtonStyle.Danger)
+    );
 
-    const durationStr = isLive ? 'LIVE' : `${Math.floor(track.totalDurationMs / 60000)}:${Math.floor((track.totalDurationMs % 60000) / 1000).toString().padStart(2, '0')}`;
+
+    const durationStr = track.totalDurationMs === 0 ? 'LIVE' : `${Math.floor(track.totalDurationMs / 60000)}:${Math.floor((track.totalDurationMs % 60000) / 1000).toString().padStart(2, '0')}`;
     
+    // Fetch lyrics early (don't block audio playback)
+    // SKIP for live streams (duration 0)
     let syncedLyrics = null;
-    if (!isLive) {
-        fetchSyncedLyrics(track.title, track.author, track.totalDurationMs / 1000, track.query, track.actualUrl)
-            .then(res => syncedLyrics = res)
-            .catch(err => console.warn('[Lyrics] Fetch failed:', err.message));
+    if (track.totalDurationMs > 0) {
+        fetchSyncedLyrics(track.title, track.author, track.totalDurationMs / 1000, track.query, track.actualUrl).then(results => {
+            syncedLyrics = results;
+        }).catch(err => console.warn('[Lyrics] Initial fetch failed:', err.message));
+    } else {
+        console.log(`[Lyrics] Skipping fetch for live stream: ${track.title}`);
     }
 
     const generateEmbed = (currentMs) => {
         const totalBars = 25;
         const progress = track.totalDurationMs > 0 ? Math.min(currentMs / track.totalDurationMs, 1) : 0;
         const progressIndex = Math.floor(progress * totalBars);
+        
         let bar = '';
-        for (let i = 0; i < totalBars; i++) bar += (i === progressIndex) ? '🔵' : '▬';
+        for (let i = 0; i < totalBars; i++) {
+            if (i === progressIndex) bar += '🔵';
+            else bar += '▬';
+        }
 
         const currentStr = `${Math.floor(currentMs / 60000)}:${Math.floor((currentMs % 60000) / 1000).toString().padStart(2, '0')}`;
+        
+        const reqValue = track.requester === 'Autoplay' ? '🤖 Autoplay' : `<@${track.requester}>`;
+
         let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
 
         if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
-            const offsetMs = (track.introOffsetMs || 0) + (queue.lyricOffsetMs || 0);
+            // Apply both automatic (chapters) and manual (/lyrics offset) offsets
+            const autoOffsetMs = track.introOffsetMs || 0;
+            const manualOffsetMs = queue.lyricOffsetMs || 0;
+            const offsetMs = autoOffsetMs + manualOffsetMs;
+            
             const adjustedMs = currentMs - offsetMs;
             const lines = syncedLyrics.lyrics;
             const index = lines.findLastIndex(l => l.time <= adjustedMs);
+            
             if (index !== -1) {
                 const prev = lines[index - 1] ? `\n*${lines[index - 1].text}*` : "";
                 const current = `\n**${lines[index].text}**`;
@@ -323,7 +479,7 @@ async function playNextSong(guildId, queueMap, interaction) {
             .setDescription(description)
             .setThumbnail(track.thumbnail)
             .addFields(
-                { name: 'Requested by', value: track.requester === 'Autoplay' ? '🤖 Autoplay' : `<@${track.requester}>`, inline: true },
+                { name: 'Requested by', value: reqValue, inline: true },
                 { name: 'Channel', value: `<#${queue.voiceChannel.id}>`, inline: true }
             )
             .setColor(0x23272A);
@@ -344,21 +500,33 @@ async function playNextSong(guildId, queueMap, interaction) {
             clearInterval(progressInterval);
             return;
         }
+        
         const currentMs = resource.playbackDuration || 0;
         const currentLyricIndex = (syncedLyrics && syncedLyrics.lyrics) 
-            ? syncedLyrics.lyrics.findLastIndex(l => l.time <= currentMs - ((track.introOffsetMs || 0) + (queue.lyricOffsetMs || 0))) 
+            ? syncedLyrics.lyrics.findLastIndex(l => {
+                const autoOffsetMs = track.introOffsetMs || 0;
+                const manualOffsetMs = queue.lyricOffsetMs || 0;
+                const offsetMs = autoOffsetMs + manualOffsetMs;
+                return l.time <= currentMs - offsetMs;
+            }) 
             : -1;
 
         if (player.state.status === 'playing' && replyMessage) {
+            // Update only if local lyric line changed OR 5 seconds passed since last progress bar update
             if (currentLyricIndex !== lastKnownLyricIndex || (currentMs - lastUpdateMs) >= 5000) {
                 lastKnownLyricIndex = currentLyricIndex;
                 lastUpdateMs = currentMs;
-                try { await replyMessage.edit({ embeds: [generateEmbed(currentMs)] }); } catch (err) { clearInterval(progressInterval); }
+                try {
+                    await replyMessage.edit({ embeds: [generateEmbed(currentMs)] });
+                } catch (err) {
+                    clearInterval(progressInterval);
+                }
             }
         }
     }, 1000);
 
     player.on(AudioPlayerStatus.Idle, () => {
+        console.log(`[Queue] Track ended/skipped. Next up...`);
         clearInterval(progressInterval);
         queue.songs.shift(); 
         playNextSong(guildId, queueMap, null);
