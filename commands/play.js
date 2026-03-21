@@ -58,6 +58,17 @@ module.exports = {
             const queueMap = interaction.client.queues;
             let serverQueue = queueMap.get(interaction.guild.id);
 
+            // If a queue exists but the connection is destroyed, clear it and start fresh
+            if (serverQueue) {
+                const connState = serverQueue.connection?.state?.status;
+                const isAlive = connState && connState !== VoiceConnectionStatus.Destroyed;
+                if (!isAlive) {
+                    console.log('[Queue] Stale queue detected, clearing and restarting...');
+                    queueMap.delete(interaction.guild.id);
+                    serverQueue = null;
+                }
+            }
+
             if (serverQueue) {
                 serverQueue.songs.push(track);
                 const addEmbed = new EmbedBuilder()
