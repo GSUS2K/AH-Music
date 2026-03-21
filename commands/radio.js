@@ -38,19 +38,54 @@ module.exports = {
             });
             connection.subscribe(player);
             
-            const startYtdl = (url) => {
+            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+            const { spawn } = require('child_process');
+
+            const startRadioStream = async (url) => {
+                // Step 1: Get the real HLS/manifest URL from yt-dlp
+                const manifestResult = await youtubedl(url, {
+                    f: 'bestaudio/best',
+                    getUrl: true,
+                    noCheckCertificates: true,
+                    noWarnings: true,
+                }).catch(() => null);
+
+                const manifestUrl = typeof manifestResult === 'string'
+                    ? manifestResult.trim().split('\n')[0]
+                    : null;
+
+                if (manifestUrl) {
+                    // Step 2: Pipe the HLS stream through ffmpeg for proper decoding
+                    const ffmpeg = spawn(ffmpegPath, [
+                        '-reconnect', '1',
+                        '-reconnect_streamed', '1',
+                        '-reconnect_delay_max', '5',
+                        '-i', manifestUrl,
+                        '-vn',              // no video
+                        '-acodec', 'libopus',
+                        '-f', 'opus',
+                        '-ar', '48000',
+                        '-ac', '2',
+                        'pipe:1'
+                    ], { stdio: ['ignore', 'pipe', 'ignore'] });
+
+                    return createAudioResource(ffmpeg.stdout, { inputType: require('@discordjs/voice').StreamType.OggOpus });
+                }
+
+                // Fallback: pipe yt-dlp stdout directly
+                console.warn("Radio: No manifest URL, falling back to yt-dlp pipe");
                 const proc = youtubedl.exec(url, {
                     o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
                 }, { stdio: ['ignore', 'pipe', 'ignore'] });
-                return proc.stdout;
+                return createAudioResource(proc.stdout);
             };
 
-            const resource = createAudioResource(startYtdl(query));
+            const resource = await startRadioStream(query);
             player.play(resource);
 
-            player.on(AudioPlayerStatus.Idle, () => {
+            player.on(AudioPlayerStatus.Idle, async () => {
                 try {
-                    player.play(createAudioResource(startYtdl(query)));
+                    player.play(await startRadioStream(query));
                 } catch(e) {
                     console.error("Radio Stream Restart Failed:", e);
                 }
