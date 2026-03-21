@@ -35,18 +35,27 @@ module.exports = {
              try {
                 const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
                 const info = await youtubedl(urlQuery, { 
-                    dumpSingleJson: true, noCheckCertificates: true, noWarnings: true
+                    dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, timeout: 10000
                 });
-                const entry = info.entries ? info.entries[0] : info;
-                if (!entry) throw new Error('No results');
-                title = entry.title || 'Unknown Track';
-                thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
-                author = entry.uploader || 'Unknown Artist';
-                actualUrl = entry.webpage_url || query;
-                totalDurationMs = (entry.is_live || entry.live_status === 'is_live') ? 0 : (entry.duration || 0) * 1000;
-                youtubeId = entry.id;
+                 const entry = info.entries ? info.entries[0] : info;
+                 if (!entry) throw new Error('No results');
+                 
+                 title = entry.title || 'Unknown Track';
+                 thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                 author = entry.uploader || 'Unknown Artist';
+                 actualUrl = entry.webpage_url || query;
+                 totalDurationMs = (entry.is_live || entry.live_status === 'is_live') ? 0 : (entry.duration || 0) * 1000;
+                 youtubeId = entry.id;
 
-                // Check for chapters to find intro offset
+                 // Update status: Found
+                 await interaction.editReply({ 
+                     embeds: [new EmbedBuilder()
+                         .setTitle('ᴛʀᴀᴄᴋ ꜰᴏᴜɴᴅ')
+                         .setDescription(`Found: **${title}**\n*Joining voice channel...*`)
+                         .setColor(0x2B2D31)] 
+                 }).catch(() => null);
+
+                 // Check for chapters to find intro offset
                 if (entry.chapters && entry.chapters.length > 0) {
                     const musicChapter = entry.chapters.find(c => MUSIC_CHAPTER_REGEX.test(c.title));
                     if (musicChapter && musicChapter.start_time > 0) {
@@ -56,7 +65,7 @@ module.exports = {
                 }
             } catch (searchErr) {
                 console.error('[Play] yt-dlp search failed:', searchErr.message);
-                return interaction.followUp("❌ Request failed - could not find the song or it may be private.");
+                return interaction.followUp("Request failed - could not find the song or it may be private.");
             }
 
             const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId, introOffsetMs };
@@ -103,16 +112,24 @@ module.exports = {
                     guildId: interaction.guild.id,
                     adapterCreator: interaction.guild.voiceAdapterCreator
                 });
-                await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
-                queueConstruct.connection = connection;
+                 await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
+                 queueConstruct.connection = connection;
 
-                playNextSong(interaction.guild.id, queueMap, interaction);
+                 // Update status: Connected
+                 await interaction.editReply({ 
+                     embeds: [new EmbedBuilder()
+                         .setTitle('ᴄᴏɴɴᴇᴄᴛᴇᴅ')
+                         .setDescription(`Connected to <#${channel.id}>.\n*Preparing high-fidelity stream...*`)
+                         .setColor(0x2B2D31)] 
+                 }).catch(() => null);
 
-            } catch (err) {
-                console.error(err);
-                queueMap.delete(interaction.guild.id);
-                return interaction.followUp("❌ Could not join the voice channel.");
-            }
+                 playNextSong(interaction.guild.id, queueMap, interaction);
+
+             } catch (err) {
+                 console.error(err);
+                 queueMap.delete(interaction.guild.id);
+                 return interaction.editReply({ content: "Could not join the voice channel. Please check permissions." });
+             }
 
         } catch (e) {
             console.error(e);
