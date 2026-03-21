@@ -324,16 +324,23 @@ async function playNextSong(guildId, queueMap, interaction) {
 
     // Stream directly via yt-dlp (uses system ffmpeg)
     try {
-        const proc = youtubedl.exec(track.actualUrl, {
+        const opts = {
             o: '-',
             q: '',
-            f: isLive ? 'best[protocol=m3u8_native]/best' : 'bestaudio[ext=webm]/bestaudio/best',
             noCheckCertificates: true
-        }, { stdio: ['ignore', 'pipe', 'pipe'] });
+        };
+        if (isLive) {
+            opts.f = 'best[protocol=m3u8_native]/best';
+            opts.downloader = 'native'; // bypass ffmpeg for HLS
+            opts['hls-use-mpegts'] = true;
+        } else {
+            opts.f = 'bestaudio[ext=webm]/bestaudio/best';
+        }
+        const proc = youtubedl.exec(track.actualUrl, opts, { stdio: ['ignore', 'pipe', 'pipe'] });
 
         proc.stderr.on('data', (data) => {
             const msg = data.toString();
-            if (msg.includes('Error') || msg.includes('error')) console.error(`[Stream] yt-dlp: ${msg.trim()}`);
+            if (msg.includes('Error') || msg.includes('error') || isLive) console.error(`[Stream] yt-dlp: ${msg.trim()}`);
         });
 
         resource = createAudioResource(proc.stdout);
