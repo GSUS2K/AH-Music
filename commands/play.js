@@ -436,21 +436,20 @@ async function playNextSong(guildId, queueMap, interaction) {
         }
     });
 
-    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume').setEmoji('⏯').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('Skip Track').setEmoji('⏭').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('stop').setLabel('Stop & Clear').setEmoji('⏹').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume Playback').setEmoji('⏯').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('skip').setLabel('Skip Current Track').setEmoji('⏭').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('stop').setLabel('Stop and Clear Queue').setEmoji('⏹').setStyle(ButtonStyle.Danger)
     );
     
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('sync_minus').setLabel('Sync -1.0s').setEmoji('⏪').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('sync_plus').setLabel('Sync +1.0s').setEmoji('⏩').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('sync_minus').setLabel('Adjust Sync -1.0s').setEmoji('⏪').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('sync_plus').setLabel('Adjust Sync +1.0s').setEmoji('⏩').setStyle(ButtonStyle.Secondary)
     );
 
     if (!isLive) {
         row2.addComponents(
-            new ButtonBuilder().setCustomId('download').setLabel('Download Audio').setEmoji('⬇').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId('download').setLabel('Download Audio File').setEmoji('⬇').setStyle(ButtonStyle.Success)
         );
     }
 
@@ -470,7 +469,7 @@ async function playNextSong(guildId, queueMap, interaction) {
 
     const generateEmbed = (currentMs) => {
         try {
-            const totalBars = 30; // Longer bar to fill width
+            const totalBars = 45; // Maximize width
             const progress = track.totalDurationMs > 0 ? Math.min(currentMs / track.totalDurationMs, 1) : 0;
             const progressIndex = Math.floor(progress * totalBars);
             
@@ -484,7 +483,6 @@ async function playNextSong(guildId, queueMap, interaction) {
             const currentStr = `${Math.floor(currentMs / 60000)}:${Math.floor((currentMs % 60000) / 1000).toString().padStart(2, '0')}`;
             const reqValue = track.requester === 'Autoplay' ? 'Autoplay' : `<@${track.requester}>`;
 
-            // Remove link from title to prevent markdown breakage with parentheses
             let description = `**${track.title}**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
 
             if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
@@ -510,13 +508,11 @@ async function playNextSong(guildId, queueMap, interaction) {
                 }
             }
 
-            // Fallback for missing voice channel data
-            const channelTag = queue.voiceChannel ? `<#${queue.voiceChannel.id}>` : 'Unknown';
-            description += `\n\n👤 **Requested by**: ${reqValue}  |  🔊 **Channel**: ${channelTag}`;
+            description += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 **Requested by**: ${reqValue}  |  🔊 **Channel**: ${queue.voiceChannel ? `<#${queue.voiceChannel.id}>` : 'Unknown'}`;
 
             return new EmbedBuilder()
                 .setTitle('Now Playing')
-                .setDescription(description.substring(0, 4000)) // Safety truncate
+                .setDescription(description.substring(0, 4000))
                 .setThumbnail(track.thumbnail)
                 .setColor(0x2B2D31);
         } catch (e) {
