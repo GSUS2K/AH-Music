@@ -327,7 +327,7 @@ async function playNextSong(guildId, queueMap, interaction) {
         const proc = youtubedl.exec(track.actualUrl, {
             o: '-',
             q: '',
-            f: isLive ? '95/94/93/bestaudio/best' : 'bestaudio/best',
+            f: isLive ? 'best[protocol=m3u8_native]/best' : 'bestaudio[ext=webm]/bestaudio/best',
             noCheckCertificates: true
         }, { stdio: ['ignore', 'pipe', 'pipe'] });
 
