@@ -31,9 +31,9 @@ module.exports = {
             let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
             const MUSIC_CHAPTER_REGEX = /music|song|start|feeka|sukoon|play/i;
 
-            // Use yt-dlp directly with execFile (no shell) and a hard timeout
+            // Use yt-dlp directly with a verified absolute path
              try {
-                const ytdlpPath = process.env.YOUTUBE_DL_PATH || 'yt-dlp';
+                const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
                 const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
                 
                 console.log(`[Play] Querying metadata: ${urlQuery}`);
@@ -79,8 +79,8 @@ module.exports = {
              } catch (searchErr) {
                 console.error('[Play] yt-dlp search failed:', searchErr.message);
                 const errorMsg = searchErr.message.includes('timeout') 
-                    ? 'Request timed out (YouTube is slow to respond). Please try again.'
-                    : 'Request failed - could not find the song or it may be private.';
+                    ? 'Request timed out (YouTube responded too slowly).'
+                    : `Request failed: ${searchErr.message.split('\n')[0].substring(0, 100)}`;
                 return interaction.editReply({ content: `❌ ${errorMsg}` });
              }
 
@@ -368,14 +368,17 @@ async function playNextSong(guildId, queueMap, interaction) {
         if (isLive) {
             // Get the direct m3u8 playlist URL from yt-dlp (no ffmpeg needed for this)
             // Get the direct m3u8 playlist URL from yt-dlp
-            const ytdlpPath = process.env.YOUTUBE_DL_PATH || 'yt-dlp';
+            const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
             const { execFile: execFilePromise } = require('util').promisify(require('child_process'));
             const { stdout: m3u8Url } = await execFilePromise(ytdlpPath, [
                 '--get-url',
                 '--no-check-certificates',
                 '-f', 'best[protocol=m3u8_native]/best',
                 track.actualUrl
-            ], { timeout: 10000 }).catch(() => ({ stdout: '' }));
+            ], { timeout: 10000 }).catch((e) => {
+                console.warn('[HLS] m3u8 fetch error:', e.message);
+                return { stdout: '' };
+            });
 
             if (m3u8Url) {
                 const { PassThrough } = require('stream');
@@ -449,7 +452,7 @@ async function playNextSong(guildId, queueMap, interaction) {
                 console.error('[Stream] Failed to get live stream URL');
             }
         } else {
-            const ytdlpPath = process.env.YOUTUBE_DL_PATH || 'yt-dlp';
+            const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
             const proc = require('child_process').spawn(ytdlpPath, [
                 track.actualUrl,
                 '-o', '-',
