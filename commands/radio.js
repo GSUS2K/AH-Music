@@ -83,18 +83,19 @@ module.exports = {
             const startRadioStream = async (url) => {
                 const { StreamType } = require('@discordjs/voice');
                 try {
-                    console.log(`[Radio] Finding live manifest for: ${url}`);
+                    console.log(`[Radio] Fetching live HLS for: ${url}`);
                     
-                    // Step 1: Get the actual HLS/Dash URL
+                    // Step 1: Force HLS format for YouTube live (usually format 95 or 94)
                     const manifestUrl = await youtubedl(url, {
-                        f: 'bestaudio/best', getUrl: true, noCheckCertificates: true, noWarnings: true,
+                        f: '95/94/bestaudio/best', getUrl: true, noCheckCertificates: true, noWarnings: true,
                     }).catch(() => url);
 
-                    console.log(`[Radio] Starting ffmpeg with URL: ${manifestUrl.substring(0, 50)}...`);
+                    console.log(`[Radio] Opening stable HLS stream...`);
 
-                    // Step 2: Use ffmpeg to stabilize the stream. 
-                    // Transcoding to libopus is the most compatible way for Discord.
+                    // Step 2: Use ffmpeg with -re (real-time) for live stream stability
+                    // This prevents the pipe from closing immediately if data comes too fast/slow
                     const ffmpeg = spawn(ffmpegPath, [
+                        '-re', // Read input at native frame rate (CRITICAL for live)
                         '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
                         '-i', manifestUrl.trim(),
                         '-vn',
@@ -107,19 +108,20 @@ module.exports = {
 
                     ffmpeg.stderr.on('data', (d) => {
                         const m = d.toString();
-                        // Only log actual errors to avoid spamming the console with ffmpeg warnings
-                        if (m.includes('403') || m.includes('Error') || m.includes('fail')) {
-                            console.error(`[Radio FFMPEG] ${m.trim()}`);
-                        }
+                        if (m.includes('403') || m.includes('Error')) console.error(`[Radio FFMPEG] ${m.trim()}`);
                     });
 
                     ffmpeg.on('close', (code) => {
-                        if (code !== 0 && code !== null) console.warn(`[Radio FFMPEG] Process closed with code ${code}`);
+                        if (code !== 0 && code !== null) console.warn(`[Radio FFMPEG] Closed (${code})`);
                     });
 
-                    return createAudioResource(ffmpeg.stdout, { inputType: StreamType.OggOpus });
+                    // Arbitrary input type lets the voice engine handle the opus packets more flexibly
+                    return createAudioResource(ffmpeg.stdout, { 
+                        inputType: StreamType.OggOpus,
+                        inlineVolume: false 
+                    });
                 } catch (err) {
-                    console.error(`[Radio] Streaming error: ${err.message}`);
+                    console.error(`[Radio] Stream start failed: ${err.message}`);
                     return null;
                 }
             };
