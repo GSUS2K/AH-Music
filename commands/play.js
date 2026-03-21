@@ -24,12 +24,23 @@ module.exports = {
             let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
             const MUSIC_CHAPTER_REGEX = /music|song|start|feeka|sukoon|play/i;
 
-            // Use yt-dlp for search and metadata
+            // Use yt-dlp for search and metadata with a hard timeout
              try {
+                console.log(`[Play] Querying metadata for: ${query}`);
                 const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
-                const info = await youtubedl(urlQuery, { 
+                
+                // Wrap in a promise to enforce a hard timeout of 15 seconds
+                const metadataPromise = youtubedl(urlQuery, { 
                     dumpSingleJson: true, noCheckCertificates: true, noWarnings: true
                 });
+
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Search timed out after 15s')), 15000)
+                );
+
+                const info = await Promise.race([metadataPromise, timeoutPromise]);
+                console.log(`[Play] Metadata received for: ${info.title || info.entries?.[0]?.title}`);
+
                 const entry = info.entries ? info.entries[0] : info;
                 if (!entry) throw new Error('No results');
                 title = entry.title || 'Unknown Track';
@@ -48,8 +59,8 @@ module.exports = {
                     }
                 }
             } catch (searchErr) {
-                console.error('[Play] yt-dlp search failed:', searchErr.message);
-                return interaction.followUp("❌ Request failed - could not find the song or it may be private.");
+                console.error('[Play] yt-dlp search failed/timed out:', searchErr.message);
+                return interaction.editReply({ content: `❌ Request failed: ${searchErr.message.substring(0, 500)}` }).catch(() => null);
             }
 
             const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId, introOffsetMs };
