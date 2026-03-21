@@ -9,33 +9,39 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
 
-        // Get log paths from PM2 dynamically
-        exec('pm2 show AH-Music --json', (err, stdout) => {
+        // Get all process info from PM2
+        exec('pm2 jlist', (err, stdout) => {
             if (err || !stdout) {
-                return interaction.editReply({ content: '❌ Failed to retrieve log paths from PM2.' });
+                return interaction.editReply({ content: '❌ Failed to connect to PM2 manager.' });
             }
 
             try {
-                const data = JSON.parse(stdout);
-                const outLog = data[0].pm2_env.pm_out_log_path;
-                const errLog = data[0].pm2_env.pm_err_log_path;
+                const list = JSON.parse(stdout);
+                // Find our process (case-insensitive search)
+                const data = list.find(p => p.name.toLowerCase() === 'ah-music');
+                
+                if (!data) {
+                    return interaction.editReply({ content: '❌ Could not find an active process named "AH-Music" in PM2.' });
+                }
 
-                // Read last 20 lines from outLog
+                const outLog = data.pm2_env.pm_out_log_path;
+                
+                // Read last 20 lines
                 exec(`tail -n 20 "${outLog}"`, (tailErr, tailStdout) => {
-                    const outContent = tailStdout ? tailStdout.substring(0, 1900) : 'No recent output logs.';
+                    const outContent = tailStdout ? tailStdout.substring(0, 1900) : 'No recent output logs found in the file.';
                     
                     const embed = new EmbedBuilder()
                         .setTitle('Bᴏᴛ Exᴇᴄᴜᴛɪᴏɴ Lᴏɢs')
                         .setColor(0x2B2D31)
                         .setDescription(`\`\`\`bash\n${outContent}\n\`\`\``)
-                        .setFooter({ text: 'Showing last 20 lines of AH-Music-out.log' });
+                        .setFooter({ text: `Source: ${outLog.split('/').pop()}` });
 
                     interaction.editReply({ embeds: [embed] }).catch(console.error);
                 });
 
             } catch (e) {
                 console.error('[Logs] Error:', e);
-                interaction.editReply({ content: '❌ Error parsing PM2 log data.' });
+                interaction.editReply({ content: '❌ Error parsing PM2 log list.' });
             }
         });
     }
