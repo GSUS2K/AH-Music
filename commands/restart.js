@@ -12,10 +12,15 @@ module.exports = {
             return interaction.reply({ content: 'You are not authorized to use this command.', ephemeral: true });
         }
 
-        await interaction.reply({ content: 'Restarting bot...', ephemeral: true });
-
-        exec('pm2 restart AH-Music', (err) => {
-            if (err) console.error('[Restart] Failed:', err.message);
+        await interaction.reply({ content: 'Pulling latest code and restarting bot...', ephemeral: true });
+        
+        exec('git pull && pm2 restart AH-Music', (err, stdout, stderr) => {
+            if (err) {
+                console.error('[Restart] Error:', err.message);
+                console.error('[Restart] Stderr:', stderr);
+                return;
+            }
+            console.log('[Restart] Success:', stdout);
         });
     }
 };
