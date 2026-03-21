@@ -19,6 +19,13 @@ module.exports = {
         if (!channel) return interaction.reply({ content: 'You are not connected to a voice channel!', ephemeral: true });
         
         if (!interaction.deferred && !interaction.replied) await interaction.deferReply();
+        
+        // Immediate feedback to clear "thinking..." state
+        const loadingEmbed = new EmbedBuilder()
+            .setTitle('Sᴇᴀʀᴄʜɪɴɢ...')
+            .setDescription(`Searching for: **${query}**`)
+            .setColor(0x2B2D31);
+        await interaction.editReply({ embeds: [loadingEmbed] }).catch(() => null);
 
         try {
             let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
@@ -532,7 +539,7 @@ async function playNextSong(guildId, queueMap, interaction) {
             console.log(`[Interaction] Rendering playback embed for: ${track.title}`);
             const embed = generateEmbed(0);
             
-            // Try to edit the "thinking" reply first
+            // Try to edit the "Searching..." reply
             try {
                 replyMessage = await interaction.editReply({ 
                     embeds: [embed], 
@@ -540,11 +547,11 @@ async function playNextSong(guildId, queueMap, interaction) {
                 });
                 console.log(`[Interaction] SUCCESS: Player embed sent.`);
             } catch (editError) {
-                console.warn(`[Interaction] editReply failed, trying followUp:`, editError.message);
+                console.warn(`[Interaction] editReply failed (probably expired), trying followUp:`, editError.message);
                 replyMessage = await interaction.followUp({ 
                     embeds: [embed], 
                     components: rows 
-                }).catch(e => console.error(`[Interaction] FATAL: followUp also failed:`, e.message));
+                }).catch(e => console.error(`[Interaction] FATAL: followUp failed:`, e.message));
             }
         } else {
             console.log(`[Queue] Sending channel message for ${track.title}...`);
