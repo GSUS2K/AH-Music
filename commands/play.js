@@ -434,21 +434,22 @@ async function playNextSong(guildId, queueMap, interaction) {
         if (newState.status !== oldState.status) {
             console.log(`[Player Status] ${oldState.status} -> ${newState.status}`);
         }
-    });    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    });
+
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('pause_resume').setLabel('⏯️ STATE').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('⏭️ NEXT').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('stop').setLabel('⏹️ TERMINATE').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume').setEmoji('⏯️').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('skip').setLabel('Skip Track').setEmoji('⏭️').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('stop').setLabel('Stop & Clear').setEmoji('⏹️').setStyle(ButtonStyle.Danger)
     );
     
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('sync_minus').setLabel('⏪ L-SYNC').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('sync_plus').setLabel('⏩ R-SYNC').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('sync_minus').setLabel('Sync -1.0s').setEmoji('⏪').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('sync_plus').setLabel('Sync +1.0s').setEmoji('⏩').setStyle(ButtonStyle.Secondary)
     );
 
     if (!isLive) {
         row2.addComponents(
-            new ButtonBuilder().setCustomId('download').setLabel('⬇️ EXPORT').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId('download').setLabel('Download Audio').setEmoji('⬇️').setStyle(ButtonStyle.Success)
         );
     }
 
@@ -467,29 +468,23 @@ async function playNextSong(guildId, queueMap, interaction) {
     }
 
     const generateEmbed = (currentMs) => {
-        const totalBars = 15;
+        const totalBars = 30; // Longer bar to fill width
         const progress = track.totalDurationMs > 0 ? Math.min(currentMs / track.totalDurationMs, 1) : 0;
         const progressIndex = Math.floor(progress * totalBars);
         
         let bar = '';
         for (let i = 0; i < totalBars; i++) {
-            if (i < progressIndex) bar += '▓';
-            else if (i === progressIndex) bar += '█';
-            else bar += '░';
+            if (i === progressIndex) bar += '🔵';
+            else bar += '▬';
         }
 
         const currentStr = `${Math.floor(currentMs / 60000)}:${Math.floor((currentMs % 60000) / 1000).toString().padStart(2, '0')}`;
-        const reqValue = track.requester === 'Autoplay' ? 'SYSTEM' : `<@${track.requester}>`;
+        const reqValue = track.requester === 'Autoplay' ? 'Autoplay' : `<@${track.requester}>`;
 
-        let description = `『 **${track.title.toUpperCase()}** 』\n*by ${track.author}*\n\n\`[ ${currentStr} / ${durationStr} ]\`\n${bar}`;
+        let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
 
         if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
             const manualOffsetMs = queue.lyricOffsetMs || 0;
-            if (manualOffsetMs !== 0) {
-                const offsetSec = (manualOffsetMs / 1000).toFixed(1);
-                description += `\n\`SIGNAL SYNC: ${offsetSec > 0 ? '+' : ''}${offsetSec}s\``;
-            }
-
             const autoOffsetMs = track.introOffsetMs || 0;
             const offsetMs = autoOffsetMs + manualOffsetMs;
             const adjustedMs = currentMs - offsetMs;
@@ -500,21 +495,24 @@ async function playNextSong(guildId, queueMap, interaction) {
                 const prev = lines[index - 1] ? `\n*${lines[index - 1].text}*` : "";
                 const current = `\n**${lines[index].text}**`;
                 const next = lines[index + 1] ? `\n*${lines[index + 1].text}*` : "";
-                description += `\n\n**◈ DATA STREAM**\n${prev}${current}${next}`;
+                description += `\n\n🎵 **Lyrics**\n${prev}${current}${next}`;
             } else if (adjustedMs < 0) {
-                description += `\n\n**◈ DATA STREAM**\n*... INITIALIZING ...*`;
+                description += `\n\n🎵 **Lyrics**\n*... Intro ...*`;
+            }
+
+            if (manualOffsetMs !== 0) {
+                const offsetSec = (manualOffsetMs / 1000).toFixed(1);
+                description += `\n\n\`Sync Offset: ${offsetSec > 0 ? '+' : ''}${offsetSec}s\``;
             }
         }
 
+        description += `\n\n👤 **Requested by**: ${reqValue}  |  🔊 **Channel**: <#${queue.voiceChannel.id}>`;
+
         return new EmbedBuilder()
-            .setTitle('ɴᴏᴡ ᴘʟᴀʏɪɴɢ')
+            .setTitle('Now Playing')
             .setDescription(description)
             .setThumbnail(track.thumbnail)
-            .addFields(
-                { name: 'USER', value: reqValue, inline: true },
-                { name: 'NODE', value: `<#${queue.voiceChannel.id}>`, inline: true }
-            )
-            .setColor(0x00FFFF); // Neon Cyan
+            .setColor(0x2B2D31);
     };
 
     const rows = [row1];
