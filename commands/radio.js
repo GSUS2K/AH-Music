@@ -81,18 +81,20 @@ module.exports = {
             const { spawn } = require('child_process');
 
             const startRadioStream = async (url) => {
-                // Use the EXACT SAME logic as play.js which we know works on this VM
                 let resource;
                 try {
-                    console.log(`[Radio] Attempting play-dl stream: ${url}`);
-                    const stream = await playDl.stream(url, { quality: 2 });
-                    resource = createAudioResource(stream.stream, { inputType: stream.type });
-                } catch (e) {
-                    console.warn(`[Radio] play-dl failed, using yt-dlp pipe fallback: ${e.message}`);
+                    // For radio/live on this VM, direct yt-dlp pipe is the most rock-solid
+                    console.log(`[Radio] Streaming via yt-dlp pipe: ${url}`);
                     const proc = youtubedl.exec(url, {
                         o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
                     }, { stdio: ['ignore', 'pipe', 'ignore'] });
+                    
                     resource = createAudioResource(proc.stdout);
+                    console.log(`[Radio] Resource created successfully`);
+                } catch (e) {
+                    console.warn(`[Radio] yt-dlp pipe failed, trying play-dl: ${e.message}`);
+                    const stream = await playDl.stream(url, { quality: 2 });
+                    resource = createAudioResource(stream.stream, { inputType: stream.type });
                 }
                 return resource;
             };
