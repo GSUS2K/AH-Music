@@ -476,8 +476,9 @@ async function playNextSong(guildId, queueMap, interaction) {
             
             let bar = '';
             for (let i = 0; i < totalBars; i++) {
-                if (i === progressIndex) bar += '🔵';
-                else bar += '▬';
+                if (i < progressIndex) bar += '▓';
+                else if (i === progressIndex) bar += '█';
+                else bar += '░';
             }
 
             const currentStr = `${Math.floor(currentMs / 60000)}:${Math.floor((currentMs % 60000) / 1000).toString().padStart(2, '0')}`;
