@@ -157,11 +157,20 @@ async function playNextSong(guildId, queueMap, interaction) {
     queue.player = player;
     queue.connection.subscribe(player);
 
-    // Stream audio via yt-dlp pipe (most compatible approach)
-    const proc = youtubedl.exec(track.actualUrl, {
-        o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
-    }, { stdio: ['ignore', 'pipe', 'ignore'] });
-    const resource = createAudioResource(proc.stdout);
+    // Try play-dl first (pure Node.js, instant — no subprocess startup delay)
+    // Fall back to yt-dlp pipe if play-dl fails
+    let resource;
+    try {
+        const stream = await playDl.stream(track.actualUrl, { quality: 2 });
+        resource = createAudioResource(stream.stream, { inputType: stream.type });
+        console.log(`[Stream] play-dl streaming: ${track.title}`);
+    } catch (e) {
+        console.warn(`[Stream] play-dl failed, using yt-dlp pipe: ${e.message}`);
+        const proc = youtubedl.exec(track.actualUrl, {
+            o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+        }, { stdio: ['ignore', 'pipe', 'ignore'] });
+        resource = createAudioResource(proc.stdout);
+    }
 
     player.play(resource);
 

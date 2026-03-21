@@ -55,21 +55,21 @@ module.exports = {
                     : null;
 
                 if (manifestUrl) {
-                    // Step 2: Pipe the HLS stream through ffmpeg for proper decoding
+                    // Step 2: Pipe the HLS stream through ffmpeg → raw PCM for Discord
+                    const { StreamType } = require('@discordjs/voice');
                     const ffmpeg = spawn(ffmpegPath, [
                         '-reconnect', '1',
                         '-reconnect_streamed', '1',
                         '-reconnect_delay_max', '5',
                         '-i', manifestUrl,
-                        '-vn',              // no video
-                        '-acodec', 'libopus',
-                        '-f', 'opus',
+                        '-vn',          // no video
+                        '-f', 's16le',  // raw PCM output — universally supported
                         '-ar', '48000',
                         '-ac', '2',
                         'pipe:1'
                     ], { stdio: ['ignore', 'pipe', 'ignore'] });
 
-                    return createAudioResource(ffmpeg.stdout, { inputType: require('@discordjs/voice').StreamType.OggOpus });
+                    return createAudioResource(ffmpeg.stdout, { inputType: StreamType.Raw });
                 }
 
                 // Fallback: pipe yt-dlp stdout directly
