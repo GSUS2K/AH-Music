@@ -348,76 +348,46 @@ async function playNextSong(guildId, queueMap, interaction) {
     queue.player = player;
     queue.connection.subscribe(player);
 
-    // Determine streaming method
-    let resource;
     const isLive = track.totalDurationMs === 0;
 
-    if (isLive) {
-        console.log(`[Stream] Live stream detected, using stable OggOpus engine: ${track.title}`);
+    // Unified streaming logic: Try play-dl first, then fall back to robust yt-dlp pipe
+    try {
+        // play-dl usually works for regular YouTube and SoundCloud
+        const stream = await playDl.stream(track.actualUrl, { quality: isLive ? undefined : 2 });
+        resource = createAudioResource(stream.stream, { inputType: stream.type });
+        console.log(`[Stream] play-dl streaming: ${track.title} (Live: ${isLive})`);
+    } catch (e) {
+        console.warn(`[Stream] play-dl failed, using robust yt-dlp pipe: ${e.message}`);
         try {
             const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-            const { spawn } = require('child_process');
-
-            // 1. Get the direct HLS manifest URL
-            const manifestUrl = await youtubedl(track.actualUrl, {
-                f: 'bestaudio/best', getUrl: true, 'no-check-certificates': true,
+            const proc = youtubedl.exec(track.actualUrl, {
+                o: '-',
+                q: '',
+                f: isLive ? '95/94/93/bestaudio/best' : 'bestaudio/best',
+                noCheckCertificates: true,
                 ffmpegLocation: ffmpegPath
-            }).catch(() => track.actualUrl);
-
-            console.log(`[Stream] Manifest URL retrieved, spawning ffmpeg transcode...`);
-
-            // 2. Spawn ffmpeg to transcode HLS directly to Raw PCM (S-Tier stability)
-            const proc = spawn(ffmpegPath, [
-                '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
-                '-i', manifestUrl.trim(),
-                '-vn', '-f', 's16le', '-ar', '48000', '-ac', '2',
-                'pipe:1'
-            ], { stdio: ['ignore', 'pipe', 'pipe'] });
+            }, { stdio: ['ignore', 'pipe', 'pipe'] });
 
             proc.stderr.on('data', (data) => {
-                const msg = data.toString().trim();
-                if (msg.includes('Error') || msg.includes('Failed') || msg.includes('Invalid')) {
-                    console.error(`[Stream] [ffmpeg stderr] ${msg}`);
-                }
+                const msg = data.toString();
+                if (msg.includes('Error') || msg.includes('Failed')) console.error(`[Stream] [yt-dlp log] ${msg.trim()}`);
             });
 
-            // WAIT for initial data to avoid "cold start" skip
-            await new Promise((resolve) => {
-                proc.stdout.once('data', () => {
-                    console.error('[Stream] SUCCESS: Received first audio chunk from ffmpeg.');
-                    resolve();
+            // Wait for first chunk for live streams to prevent skip
+            if (isLive) {
+                await new Promise((resolve) => {
+                    proc.stdout.once('data', () => {
+                        console.log('[Stream] SUCCESS: Received live data from yt-dlp.');
+                        resolve();
+                    });
+                    setTimeout(() => resolve(), 10000);
                 });
-                setTimeout(() => {
-                    console.error('[Stream] WARNING: Initial data timeout (10s)');
-                    resolve();
-                }, 10000);
-            });
-
-            proc.on('exit', (code) => {
-                if (code !== 0 && code !== null && code !== 255) {
-                    console.error(`[Stream] CRITICAL: ffmpeg process exited with code ${code}`);
-                }
-            });
+            }
 
             const { StreamType } = require('@discordjs/voice');
-            resource = createAudioResource(proc.stdout, { inputType: StreamType.Raw });
+            resource = createAudioResource(proc.stdout, { inputType: StreamType.Arbitrary });
         } catch (err) {
-            console.error(`[Stream] Live stream setup failed: ${err.message}`);
-        }
-    }
-
-    // Fallback to play-dl for regular tracks or if live setup failed
-    if (!resource) {
-        try {
-            const stream = await playDl.stream(track.actualUrl, { quality: 2 });
-            resource = createAudioResource(stream.stream, { inputType: stream.type });
-            console.log(`[Stream] play-dl streaming: ${track.title}`);
-        } catch (e) {
-            console.warn(`[Stream] play-dl failed, using yt-dlp pipe: ${e.message}`);
-            const proc = youtubedl.exec(track.actualUrl, {
-                o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
-            }, { stdio: ['ignore', 'pipe', 'ignore'] });
-            resource = createAudioResource(proc.stdout);
+            console.error(`[Stream] Final fallback failed: ${err.message}`);
         }
     }
 
