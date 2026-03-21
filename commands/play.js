@@ -36,12 +36,11 @@ module.exports = {
                 const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
                 const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
                 
-                console.log(`[Play] Querying metadata: ${urlQuery}`);
-                
-                // Use execFile with a hard timeout of 15 seconds
+                // Use python3 to execute the yt-dlp script explicitly (resolves ENOENT)
                 const { promisify } = require('util');
                 const execFilePromise = promisify(require('child_process').execFile);
-                const { stdout } = await execFilePromise(ytdlpPath, [
+                const { stdout } = await execFilePromise('python3', [
+                    ytdlpPath,
                     '--dump-single-json',
                     '--no-check-certificates',
                     '--no-warnings',
@@ -370,9 +369,11 @@ async function playNextSong(guildId, queueMap, interaction) {
             // Get the direct m3u8 playlist URL from yt-dlp (no ffmpeg needed for this)
             // Get the direct m3u8 playlist URL from yt-dlp
             const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
+            // Use python3 to execute the yt-dlp script
             const { promisify } = require('util');
             const execFilePromise = promisify(require('child_process').execFile);
-            const { stdout: m3u8Url } = await execFilePromise(ytdlpPath, [
+            const { stdout: m3u8Url } = await execFilePromise('python3', [
+                ytdlpPath,
                 '--get-url',
                 '--no-check-certificates',
                 '-f', 'best[protocol=m3u8_native]/best',
@@ -455,7 +456,8 @@ async function playNextSong(guildId, queueMap, interaction) {
             }
         } else {
             const ytdlpPath = '/Users/gsus/Documents/discord-music-bot/node_modules/@distube/yt-dlp/bin/yt-dlp';
-            const proc = require('child_process').spawn(ytdlpPath, [
+            const proc = require('child_process').spawn('python3', [
+                ytdlpPath,
                 track.actualUrl,
                 '-o', '-',
                 '-q', '',
