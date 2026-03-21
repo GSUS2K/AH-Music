@@ -7,13 +7,18 @@ process.env.PATH = `${path.dirname(ffmpegBinaryPath)}${isWindows ? ';' : ':'}${p
 
 const fs = require('fs');
 
-// Prefer the system-installed yt-dlp over the stale npm-bundled binary
+// Prefer the system-installed yt-dlp or the local @distube binary
 const systemYtdlp = '/usr/local/bin/yt-dlp';
+const localYtdlp = path.join(__dirname, 'node_modules', '@distube', 'yt-dlp', 'bin', 'yt-dlp');
+
 if (fs.existsSync(systemYtdlp)) {
     process.env.YOUTUBE_DL_PATH = systemYtdlp;
     console.log('[Startup] Using system yt-dlp:', systemYtdlp);
+} else if (fs.existsSync(localYtdlp)) {
+    process.env.YOUTUBE_DL_PATH = localYtdlp;
+    console.log('[Startup] Using local @distube yt-dlp:', localYtdlp);
 } else {
-    console.log('[Startup] System yt-dlp not found, using npm bundled binary');
+    console.log('[Startup] No dedicated yt-dlp binary found, using default PATH');
 }
 
 const { Client, GatewayIntentBits, Collection, EmbedBuilder, SlashCommandBuilder } = require('discord.js');

@@ -31,21 +31,26 @@ module.exports = {
             let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
             const MUSIC_CHAPTER_REGEX = /music|song|start|feeka|sukoon|play/i;
 
-            // Use yt-dlp for search and metadata
+            // Use yt-dlp directly for metadata with a hard timeout
              try {
+                const ytdlpPath = process.env.YOUTUBE_DL_PATH || 'yt-dlp';
                 const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
-                const info = await youtubedl(urlQuery, { 
-                    dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, timeout: 10000
-                });
-                 const entry = info.entries ? info.entries[0] : info;
-                 if (!entry) throw new Error('No results');
-                 
-                 title = entry.title || 'Unknown Track';
-                 thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
-                 author = entry.uploader || 'Unknown Artist';
-                 actualUrl = entry.webpage_url || query;
-                 totalDurationMs = (entry.is_live || entry.live_status === 'is_live') ? 0 : (entry.duration || 0) * 1000;
-                 youtubeId = entry.id;
+                
+                console.log(`[Play] Querying metadata: ${urlQuery}`);
+                
+                // Use exec with a hard timeout of 15 seconds
+                const { exec: execPromise } = require('util').promisify(require('child_process'));
+                const { stdout } = await execPromise(`"${ytdlpPath}" --dump-single-json --no-check-certificates --no-warnings "${urlQuery}"`, { timeout: 15000 });
+                
+                const entry = JSON.parse(stdout);
+                
+                title = entry.title || (entry.entries ? entry.entries[0].title : 'Unknown Track');
+                thumbnail = entry.thumbnail || (entry.entries ? entry.entries[0].thumbnail : 'https://cdn.discordapp.com/embed/avatars/0.png');
+                author = entry.uploader || (entry.entries ? entry.entries[0].uploader : 'Unknown Artist');
+                actualUrl = entry.webpage_url || (entry.entries ? entry.entries[0].webpage_url : query);
+                const isLive = entry.is_live || entry.live_status === 'is_live' || (entry.entries && (entry.entries[0].is_live || entry.entries[0].live_status === 'is_live'));
+                totalDurationMs = isLive ? 0 : (entry.duration || (entry.entries ? entry.entries[0].duration : 0)) * 1000;
+                youtubeId = entry.id || (entry.entries ? entry.entries[0].id : null);
 
                  // Update status: Found
                  await interaction.editReply({ 
