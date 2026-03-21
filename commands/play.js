@@ -135,7 +135,7 @@ module.exports = {
 };
 
 
-async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQuery) {
+async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQuery, videoUrl) {
     console.log(`[Lyrics] Fetching: "${trackName}" by "${artistName}" (${durationSec}s)`);
     try {
         let artist = artistName.replace(' - Topic', '').trim();
@@ -172,7 +172,7 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQue
 
         // Search fallback 2: Using the user's original query (if it's not a URL)
         if (originalQuery && !originalQuery.startsWith('http')) {
-            console.log(`[Lyrics] Trying final fallback with original query: "${originalQuery}"`);
+            console.log(`[Lyrics] Trying final query fallback: "${originalQuery}"`);
             const finalSearchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(originalQuery)}`;
             response = await fetch(finalSearchUrl);
             if (response.ok) {
@@ -187,11 +187,92 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQue
                 }
             }
         }
+
+        // Search fallback 3: YouTube Subtitles/Captions
+        if (videoUrl && videoUrl.includes('youtube.com')) {
+            console.log(`[Lyrics] No synced lyrics on LRCLIB, checking YouTube subtitles...`);
+            const ytSubs = await fetchYouTubeSubtitles(videoUrl);
+            if (ytSubs) return ytSubs;
+        }
+
         return null;
     } catch (error) {
         console.error('[Lyrics] Fetch error:', error.message);
         return null;
     }
+}
+
+
+async function fetchYouTubeSubtitles(url) {
+    try {
+        const json = await youtubedl(url, {
+            dumpSingleJson: true,
+            writeAutoSubs: true,
+            noCheckCertificates: true,
+            noWarnings: true,
+        }).catch(() => null);
+
+        if (!json) return null;
+
+        const subs = json.subtitles || {};
+        const autoSubs = json.automatic_captions || {};
+        
+        // Find best English track (manual preferred over auto)
+        const enKey = Object.keys(subs).find(k => k.startsWith('en')) || 
+                     Object.keys(autoSubs).find(k => k.startsWith('en'));
+        
+        if (!enKey) return null;
+
+        const formats = subs[enKey] || autoSubs[enKey];
+        const vttFormat = formats.find(f => f.ext === 'vtt');
+        if (!vttFormat) return null;
+
+        const response = await fetch(vttFormat.url);
+        if (!response.ok) return null;
+        
+        const vttText = await response.text();
+        const lyrics = parseVTT(vttText);
+        
+        if (lyrics.length > 0) {
+            console.log(`[Lyrics] YouTube captions found (${enKey})`);
+            return { lyrics, duration: json.duration };
+        }
+    } catch (err) {
+        console.warn(`[Lyrics] YouTube sub fetch failed: ${err.message}`);
+    }
+    return null;
+}
+
+function parseVTT(vtt) {
+    const lines = vtt.split('\n');
+    const lyrics = [];
+    const timeRegex = /(\d{2}:\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}:\d{2}\.\d{3})/;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        const match = timeRegex.exec(line);
+        if (match) {
+            const startStr = match[1];
+            const parts = startStr.split(':');
+            const hours = parseInt(parts[0]);
+            const minutes = parseInt(parts[1]);
+            const seconds = parseFloat(parts[2]);
+            const timeMs = (hours * 3600 + minutes * 60 + seconds) * 1000;
+            
+            let text = "";
+            let j = i + 1;
+            while (j < lines.length && lines[j].trim() !== "" && !timeRegex.test(lines[j])) {
+                text += (text ? " " : "") + lines[j].trim();
+                j++;
+            }
+            if (text) {
+                const cleanText = text.replace(/<[^>]*>/g, '').replace(/^- |^\[|\]$/g, '').trim();
+                if (cleanText) lyrics.push({ time: timeMs, text: cleanText });
+            }
+            i = j - 1;
+        }
+    }
+    return lyrics;
 }
 
 
@@ -262,26 +343,14 @@ async function playNextSong(guildId, queueMap, interaction) {
     const isLive = track.totalDurationMs === 0;
 
     if (isLive) {
-        console.log(`[Stream] Live stream detected, using high-compatibility RAW pipeline: ${track.title}`);
+        console.log(`[Stream] Live stream detected, using stable yt-dlp pipe: ${track.title}`);
         try {
-            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-            const { spawn } = require('child_process');
-            
-            // Get the best audio URL (usually HLS for live)
-            const manifestUrl = await youtubedl(track.actualUrl, {
-                f: 'bestaudio/best', getUrl: true, 'no-check-certificates': true, 'no-warnings': true,
-            }).catch(() => track.actualUrl);
-
-            const ffmpeg = spawn(ffmpegPath, [
-                '-re', 
-                '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
-                '-i', manifestUrl.trim(),
-                '-vn', '-f', 's16le', '-ar', '48000', '-ac', '2',
-                'pipe:1'
-            ], { stdio: ['ignore', 'pipe', 'ignore'] });
+            const proc = youtubedl.exec(track.actualUrl, {
+                o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+            }, { stdio: ['ignore', 'pipe', 'ignore'] });
 
             const { StreamType } = require('@discordjs/voice');
-            resource = createAudioResource(ffmpeg.stdout, { inputType: StreamType.Raw });
+            resource = createAudioResource(proc.stdout, { inputType: StreamType.Arbitrary });
         } catch (err) {
             console.error(`[Stream] Live stream setup failed: ${err.message}`);
         }
@@ -305,10 +374,21 @@ async function playNextSong(guildId, queueMap, interaction) {
     player.play(resource);
 
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-    const row = new ActionRowBuilder().addComponents(
+    const row = new ActionRowBuilder();
+    
+    row.addComponents(
         new ButtonBuilder().setCustomId('pause_resume').setLabel('⏯️ Pause / Resume').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('skip').setLabel('⏭️ Skip').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('download').setLabel('⬇️ Download').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('skip').setLabel('⏭️ Skip').setStyle(ButtonStyle.Secondary)
+    );
+
+    // Only show download for non-live tracks
+    if (!isLive) {
+        row.addComponents(
+            new ButtonBuilder().setCustomId('download').setLabel('⬇️ Download').setStyle(ButtonStyle.Success)
+        );
+    }
+
+    row.addComponents(
         new ButtonBuilder().setCustomId('stop').setLabel('⏹️ Stop').setStyle(ButtonStyle.Danger)
     );
 
@@ -319,7 +399,7 @@ async function playNextSong(guildId, queueMap, interaction) {
     // SKIP for live streams (duration 0)
     let syncedLyrics = null;
     if (track.totalDurationMs > 0) {
-        fetchSyncedLyrics(track.title, track.author, track.totalDurationMs / 1000, track.query).then(results => {
+        fetchSyncedLyrics(track.title, track.author, track.totalDurationMs / 1000, track.query, track.actualUrl).then(results => {
             syncedLyrics = results;
         }).catch(err => console.warn('[Lyrics] Initial fetch failed:', err.message));
     } else {
