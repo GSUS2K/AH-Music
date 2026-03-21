@@ -19,7 +19,8 @@ module.exports = {
         const query = interaction.options.getString('query');
 
         try {
-            let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId;
+            let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
+            const MUSIC_CHAPTER_REGEX = /music|song|start|feeka|sukoon|play/i;
 
             // Use play-dl for lightning-fast search (no process spawning)
             try {
@@ -27,6 +28,14 @@ module.exports = {
                 if (query.startsWith('http')) {
                     const info = await playDl.video_info(query);
                     videoInfo = info.video_details;
+                    // Check for chapters to find intro offset
+                    if (videoInfo.chapters && videoInfo.chapters.length > 0) {
+                        const musicChapter = videoInfo.chapters.find(c => MUSIC_CHAPTER_REGEX.test(c.title));
+                        if (musicChapter && musicChapter.start_time > 0) {
+                            introOffsetMs = musicChapter.start_time * 1000;
+                            console.log(`[Lyrics] Detected intro offset from chapter: ${introOffsetMs}ms (${musicChapter.title})`);
+                        }
+                    }
                 } else {
                     const results = await playDl.search(query, { source: { youtube: 'video' }, limit: 1 });
                     videoInfo = results[0];
@@ -51,9 +60,17 @@ module.exports = {
                 actualUrl = entry.webpage_url || query;
                 totalDurationMs = (entry.duration || 0) * 1000;
                 youtubeId = entry.id;
+
+                if (entry.chapters && entry.chapters.length > 0) {
+                    const musicChapter = entry.chapters.find(c => MUSIC_CHAPTER_REGEX.test(c.title));
+                    if (musicChapter && musicChapter.start_time > 0) {
+                        introOffsetMs = musicChapter.start_time * 1000;
+                        console.log(`[Lyrics] Detected intro offset from yt-dlp chapter: ${introOffsetMs}ms`);
+                    }
+                }
             }
 
-            const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId };
+            const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId, introOffsetMs };
 
             const queueMap = interaction.client.queues;
             let serverQueue = queueMap.get(interaction.guild.id);
@@ -270,13 +287,11 @@ async function playNextSong(guildId, queueMap, interaction) {
         let description = `**[${track.title}](${track.actualUrl})**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
 
         if (syncedLyrics && syncedLyrics.lyrics && syncedLyrics.lyrics.length > 0) {
-            // Apply smart offset: if video is significantly longer than lyrics, assume it's an intro
-            let offsetMs = 0;
-            const lyricDurationMs = (syncedLyrics.duration || 0) * 1000;
-            if (track.totalDurationMs > lyricDurationMs + 5000) {
-                offsetMs = track.totalDurationMs - lyricDurationMs;
-            }
-
+            // Priority 1: Use detected chapters (introOffsetMs)
+            // Priority 2: If no chapters, and video is > lyrics, assume it might be intro/outro
+            // BUT: It's safer to assume OUTRO (offset=0) if we don't have a chapter proof of intro.
+            let offsetMs = track.introOffsetMs || 0;
+            
             const adjustedMs = currentMs - offsetMs;
             const lines = syncedLyrics.lyrics;
             const index = lines.findLastIndex(l => l.time <= adjustedMs);
@@ -321,9 +336,7 @@ async function playNextSong(guildId, queueMap, interaction) {
         const currentMs = resource.playbackDuration || 0;
         const currentLyricIndex = (syncedLyrics && syncedLyrics.lyrics) 
             ? syncedLyrics.lyrics.findLastIndex(l => {
-                const offsetMs = (track.totalDurationMs > (syncedLyrics.duration * 1000) + 5000) 
-                    ? track.totalDurationMs - (syncedLyrics.duration * 1000) 
-                    : 0;
+                const offsetMs = track.introOffsetMs || 0;
                 return l.time <= currentMs - offsetMs;
             }) 
             : -1;
