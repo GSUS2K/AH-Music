@@ -117,13 +117,35 @@ module.exports = {
 
 async function fetchSyncedLyrics(trackName, artistName, durationSec) {
     try {
-        // Clean up track name (remove (Official Video), [MV], etc.)
-        const cleanTrack = trackName.replace(/\(.*\)|\[.*\]/g, '').trim();
-        const url = `https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTrack)}&artist_name=${encodeURIComponent(artistName)}&duration=${Math.floor(durationSec)}`;
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        const data = await response.json();
-        return data.syncedLyrics ? parseLRC(data.syncedLyrics) : null;
+        let artist = artistName.replace(' - Topic', '').trim();
+        let track = trackName.replace(/\(.*\)|\[.*\]/g, '').trim();
+
+        // If the title looks like "Artist - Track", split it for better matching
+        if (trackName.includes(' - ')) {
+            const parts = trackName.split(' - ');
+            artist = parts[0].trim();
+            track = parts[1].replace(/\(.*\)|\[.*\]/g, '').trim();
+        }
+
+        const queryUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(track)}&artist_name=${encodeURIComponent(artist)}&duration=${Math.floor(durationSec)}`;
+        
+        let response = await fetch(queryUrl);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.syncedLyrics) return parseLRC(data.syncedLyrics);
+        }
+
+        // Search fallback if GET fails
+        const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${track}`)}`;
+        response = await fetch(searchUrl);
+        if (response.ok) {
+            const results = await response.json();
+            // Find first result with synced lyrics and reasonably close duration
+            const best = results.find(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 30);
+            if (best) return parseLRC(best.syncedLyrics);
+        }
+
+        return null;
     } catch (error) {
         console.error('[Lyrics] Fetch error:', error.message);
         return null;

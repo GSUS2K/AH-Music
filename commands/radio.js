@@ -69,6 +69,15 @@ module.exports = {
             const { spawn } = require('child_process');
 
             const startRadioStream = async (url) => {
+                // Try play-dl first (often very fast and reliable for YouTube live)
+                try {
+                    console.log(`[Radio] Attempting play-dl stream for: ${url}`);
+                    const stream = await playDl.stream(url);
+                    return createAudioResource(stream.stream, { inputType: stream.type });
+                } catch (playDlErr) {
+                    console.warn(`[Radio] play-dl stream failed, trying ffmpeg HLS fallback: ${playDlErr.message}`);
+                }
+
                 // Step 1: Get the real HLS/manifest URL from yt-dlp
                 const manifestResult = await youtubedl(url, {
                     f: 'bestaudio/best',
@@ -82,6 +91,7 @@ module.exports = {
                     : null;
 
                 if (manifestUrl) {
+                    console.log(`[Radio] Found manifest URL: ${manifestUrl.substring(0, 100)}...`);
                     // Step 2: Pipe the HLS stream through ffmpeg → raw PCM for Discord
                     const { StreamType } = require('@discordjs/voice');
                     const ffmpeg = spawn(ffmpegPath, [
@@ -90,7 +100,7 @@ module.exports = {
                         '-reconnect_delay_max', '5',
                         '-i', manifestUrl,
                         '-vn',          // no video
-                        '-f', 's16le',  // raw PCM output — universally supported
+                        '-f', 's16le',  // raw PCM output
                         '-ar', '48000',
                         '-ac', '2',
                         'pipe:1'
@@ -98,16 +108,14 @@ module.exports = {
 
                     ffmpeg.stderr.on('data', (data) => {
                         const msg = data.toString();
-                        if (msg.includes('Error') || msg.includes('fail')) {
-                            console.error(`[Radio FFMPEG Error] ${msg}`);
-                        }
+                        if (msg.includes('Error') || msg.includes('fail')) console.error(`[Radio FFMPEG] ${msg}`);
                     });
 
                     return createAudioResource(ffmpeg.stdout, { inputType: StreamType.Raw });
                 }
 
                 // Fallback: pipe yt-dlp stdout directly
-                console.warn("Radio: No manifest URL, falling back to yt-dlp pipe");
+                console.warn("[Radio] No manifest URL, falling back to direct yt-dlp pipe");
                 const proc = youtubedl.exec(url, {
                     o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
                 }, { stdio: ['ignore', 'pipe', 'ignore'] });
