@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { exec } = require('child_process');
+const fs = require('fs');
 
 const OWNER_ID = '682288992456409096';
 
@@ -14,6 +15,16 @@ module.exports = {
 
         await interaction.reply({ content: 'Pulling latest code and restarting bot...', ephemeral: true });
         
+        // Save context for startup notification
+        try {
+            fs.writeFileSync('./.restart_context.json', JSON.stringify({
+                channelId: interaction.channelId,
+                timestamp: Date.now()
+            }));
+        } catch (err) {
+            console.error('[Restart] Failed to save context:', err.message);
+        }
+
         exec('git pull && pm2 restart AH-Music', (err, stdout, stderr) => {
             if (err) {
                 console.error('[Restart] Error:', err.message);

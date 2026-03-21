@@ -16,7 +16,8 @@ if (fs.existsSync(systemYtdlp)) {
     console.log('[Startup] System yt-dlp not found, using npm bundled binary');
 }
 
-const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const { exec } = require('child_process');
 const { Player } = require('discord-player');
 
 const client = new Client({
@@ -49,6 +50,22 @@ for (const file of commandFiles) {
 
 client.once('clientReady', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
+
+    // Check for restart context
+    const restartFile = './.restart_context.json';
+    if (fs.existsSync(restartFile)) {
+        try {
+            const context = JSON.parse(fs.readFileSync(restartFile, 'utf8'));
+            const channel = await client.channels.fetch(context.channelId).catch(() => null);
+            if (channel) {
+                await channel.send('✅ **Bot is back online!** Code successfully pulled and restarted.').catch(() => null);
+            }
+            fs.unlinkSync(restartFile);
+        } catch (err) {
+            console.error('[Startup] Failed to process restart context:', err.message);
+        }
+    }
+
     console.log('Registering global slash commands...');
     const commandsData = client.commands.map(c => c.data);
     
