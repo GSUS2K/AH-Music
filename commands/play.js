@@ -353,28 +353,43 @@ async function playNextSong(guildId, queueMap, interaction) {
     const isLive = track.totalDurationMs === 0;
 
     if (isLive) {
-        console.log(`[Stream] Live stream detected, using definitive yt-dlp engine: ${track.title}`);
+        console.log(`[Stream] Live stream detected, using stable OggOpus engine: ${track.title}`);
         try {
             const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-            
-            // Forces HLS formats (95/94/93) and points to our internal ffmpeg
-            const proc = youtubedl.exec(track.actualUrl, {
-                o: '-', q: '', 
-                f: '95/94/93/bestaudio/best', 
-                'no-check-certificates': true,
+            const { spawn } = require('child_process');
+
+            // 1. Get the direct HLS manifest URL
+            const manifestUrl = await youtubedl(track.actualUrl, {
+                f: 'bestaudio/best', getUrl: true, 'no-check-certificates': true,
                 ffmpegLocation: ffmpegPath
-            }, { stdio: ['ignore', 'pipe', 'pipe'] });
+            }).catch(() => track.actualUrl);
+
+            console.log(`[Stream] Manifest URL retrieved, spawning ffmpeg transcode...`);
+
+            // 2. Spawn ffmpeg to transcode HLS directly to Opus
+            const proc = spawn(ffmpegPath, [
+                '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
+                '-i', manifestUrl.trim(),
+                '-c:a', 'libopus', '-b:a', '128k', '-vbr', 'on', '-f', 'opus', '-ar', '48000', '-ac', '2',
+                'pipe:1'
+            ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
             proc.stderr.on('data', (data) => {
-                console.warn(`[Stream] [yt-dlp stderr] ${data.toString().trim()}`);
+                // Only log actual errors from ffmpeg to avoid flooding
+                const msg = data.toString().trim();
+                if (msg.includes('Error') || msg.includes('Failed')) {
+                    console.warn(`[Stream] [ffmpeg stderr] ${msg}`);
+                }
             });
 
             proc.on('exit', (code) => {
-                if (code !== 0 && code !== null) console.warn(`[Stream] yt-dlp process exited with code ${code}`);
+                if (code !== 0 && code !== null && code !== 255) { // 255 is usually SIGKILL/manual stop
+                    console.warn(`[Stream] ffmpeg process exited with code ${code}`);
+                }
             });
 
             const { StreamType } = require('@discordjs/voice');
-            resource = createAudioResource(proc.stdout, { inputType: StreamType.Arbitrary });
+            resource = createAudioResource(proc.stdout, { inputType: StreamType.OggOpus });
         } catch (err) {
             console.error(`[Stream] Live stream setup failed: ${err.message}`);
         }
