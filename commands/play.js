@@ -49,7 +49,7 @@ module.exports = {
                 }
             } catch (searchErr) {
                 console.error('[Play] yt-dlp search failed:', searchErr.message);
-                return interaction.editReply({ content: "❌ Request failed - could not find the song or it may be private.");
+                return interaction.editReply({ content: "❌ Request failed - could not find the song or it may be private." });
             }
 
             const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId, introOffsetMs };
