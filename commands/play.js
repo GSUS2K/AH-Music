@@ -350,52 +350,25 @@ async function playNextSong(guildId, queueMap, interaction) {
 
     const isLive = track.totalDurationMs === 0;
 
-    // Unified streaming logic: Try play-dl first, then fall back to robust yt-dlp pipe
+    // Simplified streaming logic: play-dl falling back to yt-dlp
     try {
-        // play-dl usually works for regular YouTube and SoundCloud
-        const stream = await playDl.stream(track.actualUrl, { quality: isLive ? undefined : 2 });
+        const stream = await playDl.stream(track.actualUrl, { quality: 2 });
         resource = createAudioResource(stream.stream, { inputType: stream.type });
-        console.log(`[Stream] play-dl streaming: ${track.title} (Live: ${isLive})`);
     } catch (e) {
-        console.warn(`[Stream] play-dl failed, using robust yt-dlp pipe: ${e.message}`);
-        try {
-            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-            const proc = youtubedl.exec(track.actualUrl, {
-                o: '-',
-                q: '',
-                f: isLive ? '95/94/93/bestaudio/best' : 'bestaudio/best',
-                noCheckCertificates: true,
-                ffmpegLocation: ffmpegPath
-            }, { stdio: ['ignore', 'pipe', 'pipe'] });
-
-            proc.stderr.on('data', (data) => {
-                const msg = data.toString();
-                if (msg.includes('Error') || msg.includes('Failed')) console.error(`[Stream] [yt-dlp log] ${msg.trim()}`);
-            });
-
-            // Wait for first chunk for live streams to prevent skip
-            if (isLive) {
-                await new Promise((resolve) => {
-                    proc.stdout.once('data', () => {
-                        console.log('[Stream] SUCCESS: Received live data from yt-dlp.');
-                        resolve();
-                    });
-                    setTimeout(() => resolve(), 10000);
-                });
-            }
-
-            const { StreamType } = require('@discordjs/voice');
-            resource = createAudioResource(proc.stdout, { inputType: StreamType.Arbitrary });
-        } catch (err) {
-            console.error(`[Stream] Final fallback failed: ${err.message}`);
-        }
+        console.warn(`[Stream] play-dl failed, using yt-dlp fallback: ${e.message}`);
+        const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+        const proc = youtubedl.exec(track.actualUrl, {
+            o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+            ffmpegLocation: ffmpegPath
+        }, { stdio: ['ignore', 'pipe', 'ignore'] });
+        resource = createAudioResource(proc.stdout);
     }
 
     player.play(resource);
 
     player.on('error', error => {
-        console.error(`[Player Error] ${error.message} - skipping track...`);
-        player.stop(); // This will trigger Idle and shift
+        console.error(`[Player Error] ${error.message}`);
+        player.stop();
     });
 
     player.on('stateChange', (oldState, newState) => {
