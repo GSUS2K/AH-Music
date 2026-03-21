@@ -45,14 +45,19 @@ module.exports = {
                 return proc.stdout;
             };
 
-            const playDl = require('play-dl');
-
             const getResource = async (url) => {
                 try {
-                    const stream = await playDl.stream(url);
-                    return createAudioResource(stream.stream, { inputType: stream.type });
+                    const result = await youtubedl(url, {
+                        f: 'bestaudio/best',
+                        getUrl: true,
+                        noCheckCertificates: true,
+                        noWarnings: true,
+                    });
+                    const directUrl = typeof result === 'string' ? result.trim().split('\n')[0] : null;
+                    if (!directUrl) throw new Error("No URL returned");
+                    return createAudioResource(directUrl);
                 } catch (e) {
-                    console.warn("Radio: play-dl failed, falling back to yt-dlp:", e.message);
+                    console.warn("Radio: URL extraction failed, falling back to yt-dlp pipe:", e.message);
                     return createAudioResource(startYtdl(url));
                 }
             };
