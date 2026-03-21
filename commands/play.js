@@ -340,16 +340,21 @@ async function playNextSong(guildId, queueMap, interaction) {
 
                 const getUrl = (url) => new Promise((resolve, reject) => {
                     const client = url.startsWith('https') ? https : http;
-                    client.get(url, (res) => {
+                    const req = client.get(url, (res) => {
                         const chunks = [];
                         res.on('data', c => chunks.push(c));
                         res.on('end', () => resolve(Buffer.concat(chunks)));
                         res.on('error', reject);
-                    }).on('error', reject);
+                    });
+                    req.on('error', reject);
+                    req.setTimeout(10000, () => {
+                        req.destroy();
+                        reject(new Error('Request timeout'));
+                    });
                 });
 
                 // Parse and stream HLS segments without ffmpeg
-                let lastSeg = null;
+                let lastSegs = [];
                 let stopped = false;
 
                 const pollHLS = async () => {
@@ -363,12 +368,15 @@ async function playNextSong(guildId, queueMap, interaction) {
                                 .filter(l => l && !l.startsWith('#'));
 
                             for (const seg of segs) {
+                                if (stopped) break;
                                 const segUrl = seg.startsWith('http') ? seg : `${base}/${seg}`;
-                                if (segUrl !== lastSeg) {
-                                    lastSeg = segUrl;
+                                if (!lastSegs.includes(segUrl)) {
+                                    lastSegs.push(segUrl);
+                                    if (lastSegs.length > 20) lastSegs.shift(); // Keep cache small
+                                    
                                     try {
                                         const data = await getUrl(segUrl);
-                                        if (!pass.destroyed && !pass.writableEnded) {
+                                        if (!stopped && !pass.destroyed && pass.writable) {
                                             pass.write(data);
                                         }
                                     } catch (e) {
@@ -379,12 +387,16 @@ async function playNextSong(guildId, queueMap, interaction) {
                         } catch (e) {
                             console.error('[HLS] Playlist error:', e.message);
                         }
+                        // Dynamic wait: if we found new segments, wait less. otherwise wait 2s.
                         await new Promise(r => setTimeout(r, 2000));
                     }
                 };
 
                 pollHLS();
-                pass.on('close', () => { stopped = true; });
+                const cleanup = () => { stopped = true; lastSegs = []; };
+                pass.on('close', cleanup);
+                pass.on('end', cleanup);
+                pass.on('error', cleanup);
 
                 resource = createAudioResource(pass);
                 console.log('[Stream] Live: HLS segment streamer started (no ffmpeg)');
