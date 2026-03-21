@@ -1,7 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, entersState, VoiceConnectionStatus, AudioPlayerStatus } = require('@discordjs/voice');
 const youtubedl = require('youtube-dl-exec');
-const playDl = require('play-dl');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -25,42 +24,16 @@ module.exports = {
             let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
             const MUSIC_CHAPTER_REGEX = /music|song|start|feeka|sukoon|play/i;
 
-            // Use play-dl for lightning-fast search (no process spawning)
+            // Use yt-dlp for search and metadata
             try {
-                let videoInfo;
-                if (query.startsWith('http')) {
-                    const info = await playDl.video_info(query);
-                    videoInfo = info.video_details;
-                    // Check for chapters to find intro offset
-                    if (videoInfo.chapters && videoInfo.chapters.length > 0) {
-                        const musicChapter = videoInfo.chapters.find(c => MUSIC_CHAPTER_REGEX.test(c.title));
-                        if (musicChapter && musicChapter.start_time > 0) {
-                            introOffsetMs = musicChapter.start_time * 1000;
-                            console.log(`[Lyrics] Detected intro offset from chapter: ${introOffsetMs}ms (${musicChapter.title})`);
-                        }
-                    }
-                } else {
-                    const results = await playDl.search(query, { source: { youtube: 'video' }, limit: 1 });
-                    videoInfo = results[0];
-                }
-                if (!videoInfo) throw new Error('No results');
-                title = videoInfo.title || 'Unknown Track';
-                thumbnail = videoInfo.thumbnails?.[0]?.url || 'https://cdn.discordapp.com/embed/avatars/0.png';
-                author = videoInfo.channel?.name || 'Unknown Artist';
-                actualUrl = videoInfo.url;
-                totalDurationMs = (videoInfo.durationInSec || 0) * 1000;
-                youtubeId = videoInfo.id;
-            } catch (searchErr) {
-                // Fallback to yt-dlp for non-YouTube or failed searches
-                console.warn('play-dl search failed, falling back to yt-dlp:', searchErr.message);
-                const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
                 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+                const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
                 const info = await youtubedl(urlQuery, { 
                     dumpSingleJson: true, noCheckCertificates: true, noWarnings: true,
                     ffmpegLocation: ffmpegPath
-                }).catch(() => null);
-                if (!info) return interaction.followUp("❌ Request failed, could not find the song or it may be private - check the URL.");
+                });
                 const entry = info.entries ? info.entries[0] : info;
+                if (!entry) throw new Error('No results');
                 title = entry.title || 'Unknown Track';
                 thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
                 author = entry.uploader || 'Unknown Artist';
@@ -68,13 +41,17 @@ module.exports = {
                 totalDurationMs = (entry.duration || 0) * 1000;
                 youtubeId = entry.id;
 
+                // Check for chapters to find intro offset
                 if (entry.chapters && entry.chapters.length > 0) {
                     const musicChapter = entry.chapters.find(c => MUSIC_CHAPTER_REGEX.test(c.title));
                     if (musicChapter && musicChapter.start_time > 0) {
                         introOffsetMs = musicChapter.start_time * 1000;
-                        console.log(`[Lyrics] Detected intro offset from yt-dlp chapter: ${introOffsetMs}ms`);
+                        console.log(`[Lyrics] Detected intro offset from chapter: ${introOffsetMs}ms (${musicChapter.title})`);
                     }
                 }
+            } catch (searchErr) {
+                console.error('[Play] yt-dlp search failed:', searchErr.message);
+                return interaction.followUp("❌ Request failed - could not find the song or it may be private.");
             }
 
             const track = { title, thumbnail, author, actualUrl, totalDurationMs, query, requester: interaction.user.id, youtubeId, introOffsetMs };
@@ -350,45 +327,25 @@ async function playNextSong(guildId, queueMap, interaction) {
 
     const isLive = track.totalDurationMs === 0;
 
-    // Unified streaming logic: Try play-dl first, then fall back to robust yt-dlp pipe
+    // Stream directly via yt-dlp
     try {
-        // play-dl usually works for regular YouTube and SoundCloud
-        const stream = await playDl.stream(track.actualUrl, { quality: isLive ? undefined : 2 });
-        resource = createAudioResource(stream.stream, { inputType: stream.type });
-        console.log(`[Stream] play-dl streaming: ${track.title} (Live: ${isLive})`);
+        const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+        const proc = youtubedl.exec(track.actualUrl, {
+            o: '-',
+            q: '',
+            f: isLive ? '95/94/93/bestaudio/best' : 'bestaudio/best',
+            noCheckCertificates: true,
+            ffmpegLocation: ffmpegPath
+        }, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+        proc.stderr.on('data', (data) => {
+            const msg = data.toString();
+            if (msg.includes('Error') || msg.includes('error')) console.error(`[Stream] yt-dlp: ${msg.trim()}`);
+        });
+
+        resource = createAudioResource(proc.stdout);
     } catch (e) {
-        console.warn(`[Stream] play-dl failed, using robust yt-dlp pipe: ${e.message}`);
-        try {
-            const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-            const proc = youtubedl.exec(track.actualUrl, {
-                o: '-',
-                q: '',
-                f: isLive ? '95/94/93/bestaudio/best' : 'bestaudio/best',
-                noCheckCertificates: true,
-                ffmpegLocation: ffmpegPath
-            }, { stdio: ['ignore', 'pipe', 'pipe'] });
-
-            proc.stderr.on('data', (data) => {
-                const msg = data.toString();
-                if (msg.includes('Error') || msg.includes('Failed')) console.error(`[Stream] [yt-dlp log] ${msg.trim()}`);
-            });
-
-            // Wait for first chunk for live streams to prevent skip
-            if (isLive) {
-                await new Promise((resolve) => {
-                    proc.stdout.once('data', () => {
-                        console.log('[Stream] SUCCESS: Received live data from yt-dlp.');
-                        resolve();
-                    });
-                    setTimeout(() => resolve(), 10000);
-                });
-            }
-
-            const { StreamType } = require('@discordjs/voice');
-            resource = createAudioResource(proc.stdout, { inputType: StreamType.Arbitrary });
-        } catch (err) {
-            console.error(`[Stream] Final fallback failed: ${err.message}`);
-        }
+        console.error(`[Stream] yt-dlp failed: ${e.message}`);
     }
 
     player.play(resource);
