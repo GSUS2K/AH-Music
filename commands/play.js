@@ -370,26 +370,37 @@ async function playNextSong(guildId, queueMap, interaction) {
             const proc = spawn(ffmpegPath, [
                 '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
                 '-i', manifestUrl.trim(),
-                '-c:a', 'libopus', '-b:a', '128k', '-vbr', 'on', '-f', 'opus', '-ar', '48000', '-ac', '2',
+                '-vn', '-acodec', 'copy', '-f', 'adts', // Try to get raw AAC/ADTS for probing
                 'pipe:1'
             ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
             proc.stderr.on('data', (data) => {
-                // Only log actual errors from ffmpeg to avoid flooding
                 const msg = data.toString().trim();
                 if (msg.includes('Error') || msg.includes('Failed')) {
                     console.warn(`[Stream] [ffmpeg stderr] ${msg}`);
                 }
             });
 
+            // WAIT for initial data to avoid "cold start" skip
+            await new Promise((resolve) => {
+                proc.stdout.once('data', () => {
+                    console.log('[Stream] First audio chunk received from ffmpeg.');
+                    resolve();
+                });
+                setTimeout(() => {
+                    console.warn('[Stream] Initial data timeout (10s)');
+                    resolve();
+                }, 10000);
+            });
+
             proc.on('exit', (code) => {
-                if (code !== 0 && code !== null && code !== 255) { // 255 is usually SIGKILL/manual stop
+                if (code !== 0 && code !== null && code !== 255) {
                     console.warn(`[Stream] ffmpeg process exited with code ${code}`);
                 }
             });
 
             const { StreamType } = require('@discordjs/voice');
-            resource = createAudioResource(proc.stdout, { inputType: StreamType.OggOpus });
+            resource = createAudioResource(proc.stdout, { inputType: StreamType.Arbitrary });
         } catch (err) {
             console.error(`[Stream] Live stream setup failed: ${err.message}`);
         }
