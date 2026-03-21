@@ -132,7 +132,7 @@ module.exports = {
 };
 
 
-async function fetchSyncedLyrics(trackName, artistName, durationSec) {
+async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQuery) {
     console.log(`[Lyrics] Fetching: "${trackName}" by "${artistName}" (${durationSec}s)`);
     try {
         let artist = artistName.replace(' - Topic', '').trim();
@@ -152,6 +152,7 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec) {
             if (data.syncedLyrics) return { lyrics: parseLRC(data.syncedLyrics), duration: data.duration };
         }
 
+        // Search fallback 1: Using extracted metadata
         const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${track}`)}`;
         response = await fetch(searchUrl);
         if (response.ok) {
@@ -161,8 +162,26 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec) {
                 .sort((a, b) => Math.abs(a.duration - durationSec) - Math.abs(b.duration - durationSec))[0];
 
             if (best) {
-                console.log(`[Lyrics] Search fallback found: "${best.trackName}" (${best.duration}s) - Diff: ${Math.abs(best.duration - durationSec)}s`);
+                console.log(`[Lyrics] Search fallback found: "${best.trackName}" (${best.duration}s)`);
                 return { lyrics: parseLRC(best.syncedLyrics), duration: best.duration };
+            }
+        }
+
+        // Search fallback 2: Using the user's original query (if it's not a URL)
+        if (originalQuery && !originalQuery.startsWith('http')) {
+            console.log(`[Lyrics] Trying final fallback with original query: "${originalQuery}"`);
+            const finalSearchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(originalQuery)}`;
+            response = await fetch(finalSearchUrl);
+            if (response.ok) {
+                const results = await response.json();
+                const best = results
+                    .filter(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60)
+                    .sort((a, b) => Math.abs(a.duration - durationSec) - Math.abs(b.duration - durationSec))[0];
+
+                if (best) {
+                    console.log(`[Lyrics] Query fallback found: "${best.trackName}" (${best.duration}s)`);
+                    return { lyrics: parseLRC(best.syncedLyrics), duration: best.duration };
+                }
             }
         }
         return null;
@@ -265,7 +284,7 @@ async function playNextSong(guildId, queueMap, interaction) {
     
     // Fetch lyrics early (don't block audio playback)
     let syncedLyrics = null;
-    fetchSyncedLyrics(track.title, track.author, track.totalDurationMs / 1000).then(results => {
+    fetchSyncedLyrics(track.title, track.author, track.totalDurationMs / 1000, track.query).then(results => {
         syncedLyrics = results;
     }).catch(err => console.warn('[Lyrics] Initial fetch failed:', err.message));
 
