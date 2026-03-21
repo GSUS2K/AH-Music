@@ -81,41 +81,20 @@ module.exports = {
             const { spawn } = require('child_process');
 
             const startRadioStream = async (url) => {
-                const { StreamType } = require('@discordjs/voice');
-                
-                // For radio/live, the most robust way across different VMs/versions is 
-                // piping the best audio URL directly through ffmpeg to OggOpus.
+                // Use the EXACT SAME logic as play.js which we know works on this VM
+                let resource;
                 try {
-                    console.log(`[Radio] Starting stream: ${url}`);
-                    
-                    // Step 1: Get the real stream URL
-                    const streamUrl = await youtubedl(url, {
-                        f: 'bestaudio/best', getUrl: true, noCheckCertificates: true, noWarnings: true,
-                    }).catch(() => url);
-
-                    // Step 2: Spawn ffmpeg - transcoding to Opus on the fly ensures buffer stability
-                    const ffmpeg = spawn(ffmpegPath, [
-                        '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
-                        '-i', streamUrl.trim(),
-                        '-vn',
-                        '-acodec', 'libopus',
-                        '-f', 'opus',
-                        '-ar', '48000',
-                        '-ac', '2',
-                        'pipe:1'
-                    ], { stdio: ['ignore', 'pipe', 'pipe'] });
-
-                    ffmpeg.stderr.on('data', (d) => {
-                        const m = d.toString();
-                        if (m.includes('Error') || m.includes('fail')) console.error(`[Radio FFMPEG] ${m}`);
-                    });
-
-                    // Use Arbitrary + Opus to let discord-voice handle the buffering more gracefully
-                    return createAudioResource(ffmpeg.stdout, { inputType: StreamType.OggOpus });
-                } catch (err) {
-                    console.error(`[Radio] Streaming error: ${err.message}`);
-                    return null;
+                    console.log(`[Radio] Attempting play-dl stream: ${url}`);
+                    const stream = await playDl.stream(url, { quality: 2 });
+                    resource = createAudioResource(stream.stream, { inputType: stream.type });
+                } catch (e) {
+                    console.warn(`[Radio] play-dl failed, using yt-dlp pipe fallback: ${e.message}`);
+                    const proc = youtubedl.exec(url, {
+                        o: '-', q: '', f: 'bestaudio/best', 'no-check-certificates': true,
+                    }, { stdio: ['ignore', 'pipe', 'ignore'] });
+                    resource = createAudioResource(proc.stdout);
                 }
+                return resource;
             };
 
             const resource = await startRadioStream(streamUrl);
