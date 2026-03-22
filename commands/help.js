@@ -15,6 +15,7 @@ module.exports = {
                 { name: '▶️ `/resume`', value: 'Resume the paused audio.' },
                 { name: '⏭️ `/skip`', value: 'Skip or stop the current stream.' },
                 { name: '🛑 `/stop`', value: 'Stop the music entirely and leave the voice channel.' },
+                { name: '📊 `/info`', value: 'Show detailed system telemetry and bot status.' },
                 { name: '❓ `/help`', value: 'Show this help universally.' }
             )
             .setColor(0x8A2BE2)

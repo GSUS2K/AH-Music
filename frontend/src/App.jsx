@@ -1,0 +1,365 @@
+import { useState, useEffect, useRef } from 'react';
+import { Play, Pause, SkipForward, Zap, Search, Plus, Loader2, ListMusic, Music, Globe, User, BookOpen, Trash2, Rewind, FastForward, ExternalLink } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { setupDiscordSdk } from './discord';
+import axios from 'axios';
+import './App.css';
+
+const API_BASE = window.location.origin;
+
+function App() {
+  const [auth, setAuth] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [voiceChannel, setVoiceChannel] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Lyrics State
+  const [lyrics, setLyrics] = useState([]);
+  const [isLyricsLoading, setIsLyricsLoading] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const lyricRef = useRef(null);
+  const activeLyricRef = useRef(null);
+
+  // Search & Interactivity
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [addingIds, setAddingIds] = useState(new Set());
+  const [lastAdded, setLastAdded] = useState(null);
+
+  const getProxyUrl = (url) => url ? `${API_BASE}/api/proxy?url=${encodeURIComponent(url)}` : null;
+
+  useEffect(() => {
+    // We removed the strict frame_id check to prevent false-negative blank screens.
+    // The app will now always attempt to boot.
+    
+    let pollInterval;
+    const initDiscord = async () => {
+      try {
+        console.log("Starting SDK Init...");
+        const sdk = await setupDiscordSdk();
+        
+        if (sdk) {
+          console.log("SDK Ready. Guild:", sdk.guildId);
+          try {
+            // Attempt full handshake
+            const authData = await sdk.commands.authenticate();
+            setAuth(authData);
+          } catch (authErr) {
+            console.warn('Handshake failed, using Guest Context:', authErr);
+            setAuth({
+              guild_id: sdk.guildId,
+              channel_id: sdk.channelId,
+              user: { id: 'GuestUser', username: 'CONNECTED' }
+            });
+          }
+          
+          if (sdk.guildId) {
+            fetchQueue(sdk.guildId);
+            pollInterval = setInterval(() => fetchQueue(sdk.guildId), 3000);
+          }
+        } else {
+          throw new Error("SDK instance was not created");
+        }
+      } catch (err) {
+        console.error('Safe-Boot Triggered:', err);
+        // Emergency Fallback: If SDK fails entirely, we still show the UI
+        // and let the user try to search/play (it might work if backend is reachable)
+        setError(null); 
+        setAuth({
+          guild_id: new URLSearchParams(window.location.search).get('guild_id') || '0',
+          user: { id: 'Guest', username: 'OFFLINE MODE' }
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initDiscord();
+    return () => clearInterval(pollInterval);
+  }, []);
+
+  const fetchQueue = async (guildId) => {
+    try {
+      const resp = await axios.get(`${API_BASE}/api/queue/${guildId}`);
+      setQueue(resp.data.songs || []);
+      setIsPlaying(resp.data.isPlaying);
+      setVoiceChannel(resp.data.voiceChannel);
+    } catch (err) {
+      if (err.response?.status === 404) setQueue([]);
+    }
+  };
+
+  const currentTrack = queue?.[0];
+
+  // Sync internal clock for scrolling lyrics
+  useEffect(() => {
+    let interval;
+    if (isPlaying && currentTrack) {
+        interval = setInterval(() => {
+            setCurrentTime(prev => prev + 500);
+        }, 500);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, currentTrack]);
+
+  // Handle auto-scroll
+  useEffect(() => {
+    if (activeLyricRef.current) {
+        activeLyricRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [currentTime]);
+
+  const fetchLyrics = async (trackTitle, trackAuthor, trackDuration, trackUrl) => {
+    if (!trackTitle) return;
+    setIsLyricsLoading(true);
+    try {
+      const resp = await fetch(`${API_BASE}/api/lyrics?track=${encodeURIComponent(trackTitle)}&artist=${encodeURIComponent(trackAuthor || '')}&duration=${(trackDuration || 0)/1000}&url=${encodeURIComponent(trackUrl || '')}&format=json`);
+      const data = await resp.json();
+      setLyrics(Array.isArray(data) ? data : []);
+      setCurrentTime(0); // Reset clock for new song
+    } catch (err) {
+      console.error("Lyrics fetch failed:", err);
+      setLyrics([]);
+    } finally {
+      setIsLyricsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentTrack?.syncedLyrics) {
+        setLyrics(currentTrack.syncedLyrics.lyrics || []);
+    } else if (currentTrack?.title) {
+        fetchLyrics(currentTrack.title, currentTrack.author, currentTrack.duration, currentTrack.actualUrl);
+    } else {
+        setLyrics([]);
+    }
+  }, [currentTrack?.title]);
+
+  const handleControl = async (action) => {
+    if (!auth?.guild_id) return;
+    try {
+      await axios.post(`${API_BASE}/api/control/${auth.guild_id}`, { action });
+      fetchQueue(auth.guild_id);
+    } catch (err) { console.error("Control error:", err); }
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    try {
+      const resp = await axios.get(`${API_BASE}/api/search?q=${encodeURIComponent(searchQuery)}`);
+      setSearchResults(resp.data);
+    } catch (err) { console.error('Search error:', err); }
+    finally { setIsSearching(false); }
+  };
+
+  const handleAdd = async (track) => {
+    if (!auth?.guild_id) return;
+    setAddingIds(prev => new Set(prev).add(track.id));
+    try {
+      await axios.post(`${API_BASE}/api/add/${auth.guild_id}`, { 
+        track, userId: auth.user.id 
+      });
+      fetchQueue(auth.guild_id);
+      setLastAdded(track.title);
+      setTimeout(() => setLastAdded(null), 3000);
+    } catch (err) {
+      if (err.response?.status === 404) alert("Please join a Voice Channel first.");
+    } finally {
+      setAddingIds(prev => {
+        const next = new Set(prev);
+        next.delete(track.id);
+        return next;
+      });
+    }
+  };
+
+  if (loading) return (
+    <div className="loading-screen">
+      <Loader2 className="spinning" size={32} color="#00f2ff" />
+      <span style={{ letterSpacing: '4px', fontSize: '12px' }}>INITIALIZING NEURAL LINK...</span>
+    </div>
+  );
+  
+  if (error) return <div className="loading-screen"><h1>SYSTEM ERROR</h1><p>{error}</p></div>;
+
+  return (
+    <div className="app-container">
+      <div className="scanline" />
+      <div className="vignette" />
+      
+      <header className="header glass">
+        <div className="logo">
+          <Zap size={22} color="#00f2ff" />
+          <span className="logo-text">AH MUSIC <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>// v2.6-PRO</span></span>
+        </div>
+        
+        <form onSubmit={handleSearch} className="search-bar-premium">
+          <Search className="search-icon" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search the global music network..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {isSearching && <Loader2 className="spinning" size={18} style={{ position: 'absolute', right: '16px', color: '#00f2ff' }} />}
+        </form>
+
+        <div className="hide-mobile" style={{ display: 'flex', gap: '24px' }}>
+          <div className="identity"><User size={14} /> <span>{auth?.user?.username || 'GUEST'}</span></div>
+        </div>
+      </header>
+
+      <main className="main-content">
+        
+        <div className="hero-section">
+          <section className="player-panel">
+            <AnimatePresence mode="wait">
+              {currentTrack ? (
+                <motion.div 
+                  key={currentTrack.title}
+                  initial={{ opacity: 0, scale: 0.98, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 1.02, y: -20 }}
+                  className={`player-card glass ${isPlaying ? 'playing' : ''}`}
+                >
+                  <div className="player-flex">
+                    <div className="artwork-wrapper">
+                      <div className="artwork-ambient" style={{ backgroundImage: `url(${getProxyUrl(currentTrack.thumbnail)})` }} />
+                      <img src={getProxyUrl(currentTrack.thumbnail)} alt="Artwork" className="artwork-main" />
+                      <div className="visualizer" style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)' }}>
+                        {[...Array(8)].map((_, i) => <div key={i} className="visual-bar" style={{ animationDelay: `${i*0.1}s` }} />)}
+                      </div>
+                    </div>
+                    
+                    <div className="track-info">
+                      <span className="track-badge">STREAMING // {voiceChannel.toUpperCase()}</span>
+                      <h1 className="track-title-hero">{currentTrack.title}</h1>
+                      <p className="track-author-hero">by {currentTrack.author}</p>
+                      
+                      <div className="player-controls">
+                        <button onClick={() => handleControl(isPlaying ? 'pause' : 'resume')} className="btn-circle primary" title={isPlaying ? 'Pause' : 'Play'}>
+                          {isPlaying ? <Pause size={32} /> : <Play size={32} />}
+                        </button>
+                        <button onClick={() => handleControl('skip')} className="btn-circle secondary" title="Skip">
+                          <SkipForward size={24} />
+                        </button>
+                        <button onClick={() => handleControl('clear')} className="btn-circle tertiary" title="Stop & Clear">
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+
+                      <div className="sync-controls">
+                        <button onClick={() => handleControl('sync_minus')} className="btn-sync" title="Lyrics -1s">
+                          <Rewind size={16} /> -1s
+                        </button>
+                        <button onClick={() => handleControl('sync_plus')} className="btn-sync" title="Lyrics +1s">
+                          <FastForward size={16} /> +1s
+                        </button>
+                        <a href={`${API_BASE}/api/proxy?url=${encodeURIComponent(currentTrack.actualUrl)}`} target="_blank" className="btn-sync highlight" title="Source Link">
+                           SOURCE <ExternalLink size={14} />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="player-card glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
+                  <div style={{ textAlign: 'center', opacity: 0.5 }}>
+                    <Music size={48} />
+                    <h2 style={{ marginTop: '16px' }}>WAITING FOR LINK...</h2>
+                  </div>
+                </div>
+              )}
+            </AnimatePresence>
+          </section>
+
+          <section className="lyrics-panel glass">
+            <div className="lyrics-header">
+                <BookOpen size={16} /> <span>DYN-LYRICS ENGINE</span>
+            </div>
+            <div className="lyrics-content" ref={lyRef => (lyricRef.current = lyRef)}>
+              {isLyricsLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="spinning" size={24} /></div>
+              ) : lyrics.length > 0 ? (
+                lyrics.map((line, idx) => {
+                    const isActive = currentTime >= line.time && (!lyrics[idx + 1] || currentTime < lyrics[idx + 1].time);
+                    return (
+                        <div 
+                          key={idx} 
+                          ref={isActive ? activeLyricRef : null}
+                          className={`lyric-line ${isActive ? 'active' : ''}`}
+                        >
+                            {line.text}
+                        </div>
+                    );
+                })
+              ) : (
+                <div className="lyrics-placeholder">
+                    SIGNAL LOST // SEARCHING GLOBAL DATABASE...
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <section className="discovery-section">
+          <div className="section-label"><Globe size={14} /> GLOBAL DISCOVERY</div>
+          <div className="results-grid">
+            <AnimatePresence>
+              {searchResults.map((t) => (
+                <motion.div 
+                  layout
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  key={t.id} 
+                  className="track-card-mini"
+                >
+                  <img src={getProxyUrl(t.thumbnail)} alt="" className="mini-artwork" />
+                  <div className="mini-info">
+                    <div className="mini-title">{t.title}</div>
+                    <div className="mini-author">{t.author}</div>
+                  </div>
+                  <button 
+                    onClick={() => handleAdd(t)} 
+                    className="btn-add-mini"
+                    disabled={addingIds.has(t.id)}
+                  >
+                    {addingIds.has(t.id) ? <Loader2 className="spinning" size={16} /> : <Plus size={16} />}
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {!isSearching && searchResults.length === 0 && (
+                <div style={{ padding: '40px', textAlign: 'center', opacity: 0.3, gridColumn: '1/-1' }}>
+                    <Search size={32} />
+                    <p>Search above to explore the network</p>
+                </div>
+            )}
+          </div>
+        </section>
+
+      </main>
+
+      <AnimatePresence>
+        {lastAdded && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            exit={{ opacity: 0, y: 50 }} 
+            className="toast"
+          >
+            <Zap size={16} color="#00f2ff" />
+            <span>QUEUED: {lastAdded.substring(0, 30)}...</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+export default App;

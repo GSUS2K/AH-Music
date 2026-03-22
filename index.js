@@ -2,10 +2,15 @@ require('dotenv').config();
 
 const ffmpegBinaryPath = require('@ffmpeg-installer/ffmpeg').path;
 const path = require('path');
+const fs = require('fs');
+
+// Inject yt-dlp binary into PATH for all child processes
+const ytdlpPath = path.join(__dirname, 'node_modules', '@distube', 'yt-dlp', 'bin');
+process.env.PATH = `${process.env.PATH}${process.platform === 'win32' ? ';' : ':'}${ytdlpPath}`;
+console.log(`[Startup] Injected yt-dlp to PATH: ${ytdlpPath}`);
+
 const isWindows = process.platform === 'win32';
 process.env.PATH = `${path.dirname(ffmpegBinaryPath)}${isWindows ? ';' : ':'}${process.env.PATH}`;
-
-const fs = require('fs');
 
 // Prefer the system-installed yt-dlp or the local @distube binary
 const systemYtdlp = '/usr/local/bin/yt-dlp';
@@ -34,8 +39,332 @@ const client = new Client({
     ]
 });
 
+const express = require('express');
+const cors = require('cors');
+const compression = require('compression');
+
+const app = express();
+app.use(compression());
+const axios = require('axios');
+app.use(cors());
+app.use(express.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}));
+
+// --- AGGRESSIVE FRONTEND SERVING ---
+const distPath = path.join(__dirname, 'frontend', 'dist');
+console.log('[Startup] Mapping static assets to:', distPath);
+app.use(express.static(distPath));
+
+// Auth and Proxy Endpoints (must be above catch-all)
+app.post('/api/token', async (req, res) => {
+    const { code } = req.body;
+    try {
+        const response = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
+            client_id: process.env.DISCORD_CLIENT_ID,
+            client_secret: process.env.DISCORD_CLIENT_SECRET,
+            grant_type: 'authorization_code',
+            code: code,
+        }), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        });
+        res.json({ access_token: response.data.access_token });
+    } catch (err) {
+        console.error('[Auth API] Token exchange failed:', err.response?.data || err.message);
+        res.status(500).json({ error: 'Failed to exchange token' });
+    }
+});
+
+// Single source of truth for all playback state
 client.commands = new Collection();
 client.queues = new Map();
+
+// --- API ENDPOINTS FOR DISCORD ACTIVITY ---
+
+app.get('/api/health', (req, res) => res.json({ status: 'online' }));
+app.get('/tos', (req, res) => res.sendFile(path.join(distPath, 'tos.html')));
+app.get('/privacy', (req, res) => res.sendFile(path.join(distPath, 'privacy.html')));
+
+app.get('/api/queue/:guildId', (req, res) => {
+    const guildId = req.params.guildId;
+    const queue = client.queues.get(guildId);
+    
+    if (!queue) {
+        // Reduced logging to avoid spamming the console
+        return res.status(404).json({ error: 'No active queue' });
+    }
+
+    res.json({
+        isPlaying: queue.player ? queue.player.state.status === 'playing' : false,
+        voiceChannel: queue.voiceChannel ? queue.voiceChannel.name : 'Unknown',
+        songs: queue.songs.map(s => ({
+            title: s.title,
+            author: s.author,
+            thumbnail: s.thumbnail,
+            duration: s.totalDurationMs,
+            syncedLyrics: s.syncedLyrics
+        }))
+    });
+});
+
+app.get('/api/search', async (req, res) => {
+    const query = req.query.q;
+    if (!query) return res.status(400).json({ error: 'Missing query' });
+
+    try {
+        const youtubedl = require('youtube-dl-exec');
+        const info = await youtubedl(`ytsearch5:${query}`, {
+            dumpSingleJson: true, 
+            noCheckCertificates: true, 
+            noWarnings: true
+        });
+
+        const results = (info.entries || []).map(entry => ({
+            title: entry.title,
+            author: entry.uploader,
+            thumbnail: entry.thumbnail,
+            url: entry.webpage_url,
+            duration: (entry.duration || 0) * 1000,
+            id: entry.id
+        }));
+
+        res.json(results);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/proxy', async (req, res) => {
+    const url = req.query.url;
+    if (!url) return res.status(400).send('Missing URL');
+    try {
+        const response = await axios.get(url, { responseType: 'arraybuffer' });
+        res.set('Content-Type', response.headers['content-type']);
+        res.set('Cache-Control', 'public, max-age=86400');
+        res.send(response.data);
+    } catch (err) {
+        res.status(500).send('Proxy failed');
+    }
+});
+
+app.get('/api/lyrics', async (req, res) => {
+    const { track, artist, duration, query, url, format } = req.query;
+    if (!track) return res.status(400).json({ error: 'Missing track' });
+    
+    try {
+        const playCmd = require('./commands/play.js');
+        const results = await playCmd.fetchSyncedLyrics(track, artist, parseInt(duration || 0), query, url);
+        
+        if (format === 'json') {
+            return res.json(results && results.lyrics ? results.lyrics : []);
+        }
+
+        if (results && results.lyrics) {
+            res.json({ lyrics: results.lyrics.map(l => `[${Math.floor(l.time/60000)}:${Math.floor((l.time%60000)/1000).toString().padStart(2,'0')}] ${l.text}`).join('\n') });
+        } else {
+            res.json({ lyrics: 'Lyrics not found for this track in the global database.' });
+        }
+    } catch (err) {
+        res.json({ lyrics: 'Searching for synchronized signal...' });
+    }
+});
+
+app.all('/api/interactions', async (req, res) => {
+    if (req.method === 'GET') {
+        return res.status(200).send('Interactions Endpoint is ACTIVE. This URL is for Discord POST requests only. Please use it in the Developer Portal.');
+    }
+
+    const signature = req.get('X-Signature-Ed25519');
+    const timestamp = req.get('X-Signature-Timestamp');
+    const body = req.rawBody;
+
+    if (!signature || !timestamp || !body) {
+        return res.status(401).end('Missing signature headers');
+    }
+
+    const nacl = require('tweetnacl');
+    const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY;
+    
+    if (!PUBLIC_KEY) {
+        // Fallback for verification if not yet in .env (only for PING during setup)
+        if (req.body.type === 1) return res.json({ type: 1 });
+        return res.status(500).end('Public Key missing in server environment');
+    }
+
+    const isVerified = nacl.sign.detached.verify(
+        Buffer.concat([Buffer.from(timestamp), body]),
+        Buffer.from(signature, 'hex'),
+        Buffer.from(PUBLIC_KEY, 'hex')
+    );
+
+    if (!isVerified) {
+        return res.status(401).end('Invalid signature');
+    }
+
+    // Handle Discord PING
+    if (req.body.type === 1) {
+        return res.json({ type: 1 });
+    }
+
+    // Since we use the Gateway for actual commands, we just 200 other types
+    res.status(200).end();
+});
+app.get('/api/queue/:guildId', (req, res) => {
+    const guildId = req.params.guildId;
+    const queue = client.queues.get(guildId);
+    if (!queue) return res.status(404).json({ songs: [], isPlaying: false });
+    
+    res.json({
+        songs: queue.songs,
+        isPlaying: queue.player?.state?.status === 'playing',
+        voiceChannel: queue.voiceChannel?.name || 'Voice',
+        lyricOffsetMs: queue.lyricOffsetMs || 0
+    });
+});
+
+app.post('/api/add/:guildId', async (req, res) => {
+    const { track, userId } = req.body;
+    const guildId = req.params.guildId;
+    const queueMap = client.queues;
+    let queue = queueMap.get(guildId);
+
+    console.log(`[Activity API] Add Attempt - Guild: ${guildId}, User: ${userId}, Track: "${track?.title}"`);
+
+    if (!queue) {
+        let voiceChannel;
+        const guild = client.guilds.cache.get(guildId);
+        
+        if (userId && userId !== 'ActivityUser') {
+            const member = await guild?.members.fetch(userId).catch(() => null);
+            voiceChannel = member?.voice.channel;
+        }
+
+        // FALLBACK: If userId is generic or member not found, find ANY VC with active members
+        if (!voiceChannel && guild) {
+            const { ChannelType } = require('discord.js');
+            voiceChannel = guild.channels.cache.find(c => 
+                c.type === ChannelType.GuildVoice && 
+                c.members.filter(m => !m.user.bot).size > 0
+            );
+            if (voiceChannel) {
+                console.log(`[Activity API] Anonymous Wake triggered. Using VC: ${voiceChannel.name}`);
+            }
+        }
+
+        if (!voiceChannel) {
+            return res.status(404).json({ error: 'Please join a Voice Channel first so the bot can follow you.' });
+        }
+
+        try {
+            // Create new queue construct
+            const queueConstruct = {
+                textChannel: null, // We don't have a command interaction channel here
+                voiceChannel: voiceChannel,
+                connection: null,
+                player: null,
+                songs: [],
+                playing: true,
+                lastPlayedId: null,
+                lyricOffsetMs: 0
+            };
+            queueMap.set(guildId, queueConstruct);
+            queue = queueConstruct;
+
+            const { joinVoiceChannel, entersState, VoiceConnectionStatus } = require('@discordjs/voice');
+            const connection = joinVoiceChannel({
+                channelId: voiceChannel.id,
+                guildId: guildId,
+                adapterCreator: guild.voiceAdapterCreator
+            });
+
+            await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
+            queue.connection = connection;
+        } catch (err) {
+            console.error('[Activity API] Auto-join failed:', err);
+            return res.status(500).json({ error: 'Failed to join Voice Channel.' });
+        }
+    }
+
+    queue.songs.push({
+        ...track,
+        actualUrl: track.url || track.actualUrl,
+        totalDurationMs: track.duration || track.totalDurationMs,
+        requester: userId || 'Activity',
+        youtubeId: track.id || track.youtubeId
+    });
+
+    if (queue.songs.length === 1) {
+        // Only trigger play if the player is not already handling something
+        const isActuallyPlaying = queue.player && ['playing', 'buffering'].includes(queue.player.state.status);
+        if (!isActuallyPlaying) {
+            const { playNextSong } = require('./commands/play.js'); 
+            if (typeof playNextSong === 'function') {
+                playNextSong(guildId, queueMap, null);
+            }
+        }
+    }
+
+    res.json({ success: true, position: queue.songs.length - 1 });
+});
+
+app.post('/api/control/:guildId', async (req, res) => {
+    const { action } = req.body;
+    const guildId = req.params.guildId;
+    const { getVoiceConnection } = require('@discordjs/voice');
+    const connection = getVoiceConnection(guildId);
+
+    if (!connection || !connection.state.subscription) {
+        return res.status(404).json({ error: 'No active stream' });
+    }
+
+    const player = connection.state.subscription.player;
+
+    try {
+        switch (action) {
+            case 'pause':
+                player.pause();
+                break;
+            case 'resume':
+                player.unpause();
+                break;
+            case 'skip':
+                player.stop();
+                break;
+            case 'stop':
+            case 'clear':
+                client.queues.delete(guildId);
+                connection.destroy();
+                break;
+            case 'sync_plus':
+                if (queue) queue.lyricOffsetMs = (queue.lyricOffsetMs || 0) + 1000;
+                break;
+            case 'sync_minus':
+                if (queue) queue.lyricOffsetMs = (queue.lyricOffsetMs || 0) - 1000;
+                break;
+            case 'download':
+                // Track is already in queue[0]. We don't need to do anything here 
+                // as the /api/interactions logic handles the actual attachment 
+                // if triggered via Discord button, but for Activity we might 
+                // just return the URL for the frontend to handle.
+                break;
+            default:
+                return res.status(400).json({ error: 'Invalid action' });
+        }
+        res.json({ success: true, action, offset: queue?.lyricOffsetMs || 0 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Final catch-all for SPA routing (using middleware to avoid path-to-regexp errors)
+app.use((req, res) => {
+    if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'API route not found' });
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+});
 
 const commandsPath = path.join(__dirname, 'commands');
 if (!fs.existsSync(commandsPath)) {
@@ -46,12 +375,18 @@ const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('
 for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     const command = require(filePath);
-    if ('data' && 'execute' in command) {
+    if ('data' in command && 'execute' in command) {
         client.commands.set(command.data.name, command);
     } else {
         console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
     }
 }
+
+// Start Express Server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`[Activity] Web Server running on port ${PORT}`);
+});
 
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
@@ -80,14 +415,18 @@ client.once('ready', async () => {
     try {
         await client.application.commands.set(commandsData);
         console.log('Successfully registered global slash commands!');
-        
-        // Clear all guild commands if any exist to remove duplicates
-        for (const [guildId, guild] of client.guilds.cache) {
-            await guild.commands.set([]).catch(console.error);
-        }
-        console.log('Cleaned up legacy guild commands.');
     } catch (error) {
-        console.error('Error during command registration:', error);
+        if (error.code === 50240) {
+            console.warn('[Warning] Global registration restricted. Falling back to Guild-level propagation...');
+            for (const [guildId, guild] of client.guilds.cache) {
+                await guild.commands.set(commandsData).catch(err => {
+                    console.error(`[Fatal] Failed to register to guild ${guildId}:`, err.message);
+                });
+            }
+            console.log('Guild-level command propagation completed.');
+        } else {
+            console.error('Error during command registration:', error);
+        }
     }
 });
 

@@ -1,5 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 const fs = require('fs');
 
 module.exports = {
@@ -16,10 +18,11 @@ module.exports = {
         const rssMB = (mem.rss / 1024 / 1024).toFixed(1);
         const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(1);
 
-        // PM2 metrics
-        exec('pm2 jlist', (err, stdout) => {
+        try {
+            // PM2 metrics via promise
+            const { stdout } = await execPromise('pm2 jlist');
             let pm2Data = null;
-            if (!err && stdout) {
+            if (stdout) {
                 try {
                     const list = JSON.parse(stdout);
                     pm2Data = list.find(p => p.name === 'AH-Music');
@@ -58,8 +61,11 @@ module.exports = {
                 inline: false
             });
 
-            interaction.editReply({ embeds: [embed] }).catch(console.error);
-        });
+            await interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+            console.error('[Status] Command Logic Error:', err);
+            await interaction.editReply({ content: 'Failed to retrieve system diagnostics.' });
+        }
     }
 };
 
