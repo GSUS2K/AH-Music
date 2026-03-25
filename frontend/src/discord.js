@@ -42,6 +42,10 @@ export async function setupDiscordSdk() {
     await discordSdk.commands.authenticate({ access_token });
   } catch (err) {
     console.warn("[Discord SDK] Full Auth skipped/failed:", err.message);
+    // Visual debug for Discord Activity
+    if (!err.message.includes("Non-Discord")) {
+      alert("Auth Error: " + err.message);
+    }
     // We don't re-throw here so the app can still initialize in "SDK-Lite" mode
   }
 
