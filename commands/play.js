@@ -29,7 +29,8 @@ module.exports = {
 
         try {
             let title, thumbnail, author, actualUrl, totalDurationMs, youtubeId, introOffsetMs = 0;
-            const MUSIC_CHAPTER_REGEX = /music|song|start|feeka|sukoon|play/i;
+            const startWords = (process.env.MUSIC_START_WORDS || "music,song,start,feeka,sukoon,play").split(',').join('|');
+            const MUSIC_CHAPTER_REGEX = new RegExp(startWords, 'i');
 
             // Use yt-dlp for search and metadata
              try {

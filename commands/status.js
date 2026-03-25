@@ -32,7 +32,7 @@ module.exports = {
             }
 
             const embed = new EmbedBuilder()
-                .setTitle('Sʏsᴛᴇᴍ Dɪᴀɢɴᴏsᴛɪᴄs (Oʀᴀᴄʟᴇ Cʟᴏᴜᴅ)')
+                .setTitle(`Sʏsᴛᴇᴍ Dɪᴀɢɴᴏsᴛɪᴄs (${process.env.PROVIDER_NAME || 'Cloud Instance'})`)
                 .setColor(0xED4245)
                 .setThumbnail(interaction.client.user.displayAvatarURL())
                 .addFields(

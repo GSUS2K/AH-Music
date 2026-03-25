@@ -547,8 +547,9 @@ client.on('interactionCreate', async interaction => {
                 if (!track.totalDurationMs || track.totalDurationMs === 0) {
                     return interaction.editReply({ content: '❌ Cannot download live radio or streams with unknown duration.' });
                 }
-                if (track.totalDurationMs > 25 * 60 * 1000) {
-                    return interaction.editReply({ content: '❌ This track is too long to send over Discord (max 25 minutes).' });
+                const uploadLimitMb = parseInt(process.env.DISCORD_UPLOAD_LIMIT_MB) || 25;
+                if (track.totalDurationMs > uploadLimitMb * 60 * 1000) {
+                    return interaction.editReply({ content: `❌ This track is too long to send over Discord (max ${uploadLimitMb} minutes).` });
                 }
 
                 // Best audio is usually .webm or .m4a. Discord supports uploading and playing both natively.
@@ -580,10 +581,11 @@ client.on('interactionCreate', async interaction => {
                     const actualFilePath = require('path').join(__dirname, downloadedFile);
                     const ext = require('path').extname(actualFilePath);
                     
+                    const uploadLimitMb = parseInt(process.env.DISCORD_UPLOAD_LIMIT_MB) || 25;
                     const stats = fs.statSync(actualFilePath);
-                    if (stats.size > 25 * 1024 * 1024) {
+                    if (stats.size > uploadLimitMb * 1024 * 1024) {
                         if (fs.existsSync(actualFilePath)) fs.unlinkSync(actualFilePath);
-                        return interaction.editReply({ content: "❌ The downloaded file exceeds Discord's 25MB upload limit." });
+                        return interaction.editReply({ content: `❌ The downloaded file exceeds Discord's ${uploadLimitMb}MB upload limit.` });
                     }
 
                     const { AttachmentBuilder } = require('discord.js');
@@ -601,7 +603,8 @@ client.on('interactionCreate', async interaction => {
                 const queue = interaction.client.queues.get(interaction.guild.id);
                 if (!queue) return interaction.reply({ content: 'No active queue found.', ephemeral: true });
                 
-                const adjustment = interaction.customId === 'sync_minus' ? -1000 : 1000;
+                const syncStepMs = parseInt(process.env.LYRIC_SYNC_STEP_MS) || 1000;
+                const adjustment = interaction.customId === 'sync_minus' ? -syncStepMs : syncStepMs;
                 queue.lyricOffsetMs = (queue.lyricOffsetMs || 0) + adjustment;
                 
                 const offsetSec = (queue.lyricOffsetMs / 1000).toFixed(1);

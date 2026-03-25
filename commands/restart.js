@@ -2,7 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const { exec } = require('child_process');
 const fs = require('fs');
 
-const OWNER_ID = '682288992456409096';
+const OWNER_ID = process.env.OWNER_ID || '682288992456409096';
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,7 +15,8 @@ module.exports = {
 
         await interaction.reply({ content: '🚀 **Update & Reset Sequence Initiated**\n- Pulling latest nebula-code...\n- Rebuilding neural-activity...\n- Refreshing process...', ephemeral: true });
         
-        const command = 'git pull origin main && npm run build-activity && pm2 restart AH-Music';
+        const pm2Name = process.env.PM2_APP_NAME || 'AH-Music';
+        const command = `git pull origin main && npm run build-activity && pm2 restart ${pm2Name}`;
         
         exec(command, (err, stdout, stderr) => {
             if (err) {
