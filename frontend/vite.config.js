@@ -11,4 +11,13 @@ export default defineConfig({
     strictPort: true,
   },
   envDir: '../', // Look for .env in the root bot directory
+  build: {
+    rollupOptions: {
+      output: {
+        entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`,
+      },
+    },
+  },
 })
