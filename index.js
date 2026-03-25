@@ -60,8 +60,16 @@ app.use(express.json({
 const distPath = path.join(__dirname, 'frontend', 'dist');
 console.log('[Startup] Mapping static assets to:', distPath);
 // Serve static assets at both the root and the /activity subpath to support all URL variations
-app.use('/activity', express.static(distPath));
-app.use(express.static(distPath));
+const staticOptions = {
+    setHeaders: (res, path) => {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+    }
+};
+
+app.use('/activity', express.static(distPath, staticOptions));
+app.use(express.static(distPath, staticOptions));
 
 // Debug: Log all API requests to see if frontend is talking to backend
 app.use('/api', (req, res, next) => {
