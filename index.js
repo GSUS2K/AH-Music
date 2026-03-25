@@ -67,12 +67,14 @@ app.use('/api', (req, res, next) => {
     next();
 });
 
-// Auth and Proxy Endpoints (must be above catch-all)
-app.post('/api/token', async (req, res) => {
+// --- API ROUTER FOR ALL ACTIVITY ENDPOINTS ---
+const apiRouter = express.Router();
+
+apiRouter.post('/token', async (req, res) => {
     const { code } = req.body;
     try {
         const response = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
-            client_id: process.env.DISCORD_CLIENT_ID,
+            client_id: process.env.VITE_DISCORD_CLIENT_ID,
             client_secret: process.env.DISCORD_CLIENT_SECRET,
             grant_type: 'authorization_code',
             code: code,
@@ -87,25 +89,54 @@ app.post('/api/token', async (req, res) => {
     }
 });
 
-app.post('/api/log', (req, res) => {
+apiRouter.post('/log', (req, res) => {
     const { message, error } = req.body;
     console.warn(`[Frontend Debug] ${message}`, error || '');
     res.json({ status: 'ok' });
 });
 
-// Single source of truth for all playback state
-client.commands = new Collection();
-client.queues = new Map();
+apiRouter.get('/health', (req, res) => res.json({ status: 'online' }));
 
-// --- API ENDPOINTS FOR DISCORD ACTIVITY ---
+apiRouter.get('/queue/:guildId', (req, res) => {
+    const guildId = req.params.guildId;
+    const queue = client.queues.get(guildId);
+    if (!queue) return res.status(404).json({ songs: [], isPlaying: false });
+    res.json({
+        songs: queue.songs,
+        isPlaying: queue.player?.state?.status === 'playing',
+        voiceChannel: queue.voiceChannel?.name || 'Voice',
+        lyricOffsetMs: queue.lyricOffsetMs || 0
+    });
+});
 
-app.get('/api/health', (req, res) => res.json({ status: 'online' }));
-app.get('/tos', (req, res) => res.sendFile(path.join(distPath, 'tos.html')));
-app.get('/privacy', (req, res) => res.sendFile(path.join(distPath, 'privacy.html')));
+// MOUNT ROUTER TWICE
+app.use('/api', apiRouter);
+app.use('/activity/api', apiRouter);
+apiRouter.get('/lyrics', async (req, res) => {
+    const { track, artist, duration, query, url, format } = req.query;
+    if (!track) return res.status(400).json({ error: 'Missing track' });
+    try {
+        const playCmd = require('./commands/play.js');
+        const results = await playCmd.fetchSyncedLyrics(track, artist, parseInt(duration || 0), query, url);
+        if (format === 'json') return res.json(results && results.lyrics ? results.lyrics : []);
+        res.json({ lyrics: results?.lyrics?.map(l => `[${Math.floor(l.time/60000)}:${Math.floor((l.time%60000)/1000).toString().padStart(2,'0')}] ${l.text}`).join('\n') || 'Lyrics not found' });
+    } catch (err) { res.json({ lyrics: 'Searching...' }); }
+});
 
-// Support /activity subpath and other SPA routes by serving index.html
-app.get(/^\/(activity($|\/.*))?$/, (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
+apiRouter.get('/search', async (req, res) => {
+    const query = req.query.q;
+    if (!query) return res.status(400).json({ error: 'Missing query' });
+    try {
+        const youtubedl = require('youtube-dl-exec');
+        const urlQuery = query.startsWith('http') ? query : `ytsearch5:${query}`;
+        const info = await youtubedl(urlQuery, { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, flatPlaylist: true });
+        const results = (info.entries || [info]).map(entry => ({
+            id: entry.id, title: entry.title, thumbnail: entry.thumbnail,
+            author: entry.uploader || entry.channel || 'Unknown',
+            url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
+        })).filter(r => r.id);
+        res.json(results);
+    } catch (err) { res.status(500).json({ error: 'Search failed' }); }
 });
 
 app.get('/api/queue/:guildId', (req, res) => {
