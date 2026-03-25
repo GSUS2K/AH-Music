@@ -258,8 +258,7 @@ apiRouter.all('/interactions', async (req, res) => {
     res.status(200).end();
 });
 
-// MOUNT ROUTER TWICE
-app.use('/api', apiRouter);
+// MOUNT ROUTER ONLY ON ACTIVITY PATH TO FORCE CLIENT REFRESH
 app.use('/activity/api', apiRouter);
 
 // Support /activity subpath and other SPA routes by serving index.html
