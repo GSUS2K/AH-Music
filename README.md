@@ -70,5 +70,7 @@ A premium, feature-rich Discord music bot engineered for stability and performan
   npm run build-activity
   ```
 
+Also the bot can be run as an activity in the server.
+Is connected to express server. Get a domain from duckdns and host in Caddy!
+Make sure to use the URL in Oauth redirects and URL mapping under activities in the discord developer portal!
 ---
-*Built with ❤️ for GSUS*
