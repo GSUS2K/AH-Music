@@ -81,6 +81,12 @@ app.post('/api/token', async (req, res) => {
     }
 });
 
+app.post('/api/log', (req, res) => {
+    const { message, error } = req.body;
+    console.warn(`[Frontend Debug] ${message}`, error || '');
+    res.json({ status: 'ok' });
+});
+
 // Single source of truth for all playback state
 client.commands = new Collection();
 client.queues = new Map();

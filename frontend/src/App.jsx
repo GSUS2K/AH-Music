@@ -7,6 +7,10 @@ import './App.css';
 
 const API_BASE = window.location.origin;
 
+const remoteLog = (msg, err = '') => {
+  axios.post(`${API_BASE}/api/log`, { message: msg, error: err }).catch(() => {});
+};
+
 function App() {
   const [auth, setAuth] = useState(null);
   const discordSdkRef = useRef(null);
@@ -45,17 +49,21 @@ function App() {
     const initDiscord = async () => {
       try {
         console.log("Starting SDK Init...");
+        remoteLog("Starting SDK Init on " + API_BASE);
         const sdk = await setupDiscordSdk();
         discordSdkRef.current = sdk;
         
         if (sdk) {
           console.log("SDK Ready. Guild:", sdk.guildId);
+          remoteLog("SDK Ready. Guild: " + sdk.guildId);
           try {
             // Attempt full handshake
             const authData = await sdk.commands.authenticate();
             setAuth(authData);
+            remoteLog("Full Auth Successful for " + authData.user.username);
           } catch (authErr) {
             console.warn('Handshake failed, using Guest Context:', authErr);
+            remoteLog("Handshake Failed", authErr.message);
             setAuth({
               guild_id: sdk.guildId,
               channel_id: sdk.channelId,
