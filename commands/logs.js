@@ -7,9 +7,15 @@ module.exports = {
         .setName('logs')
         .setDescription('Show the last 20 lines of bot logs'),
     async execute(interaction) {
+        const OWNER_ID = process.env.OWNER_ID || '682288992456409096';
+        if (interaction.user.id !== OWNER_ID) {
+            return interaction.reply({ content: '❌ You are not authorized to view bot execution logs.', ephemeral: true });
+        }
+
         await interaction.deferReply({ ephemeral: true });
 
         // Get all process info from PM2
+        const pm2Name = process.env.PM2_APP_NAME || 'AH-Music';
         exec('pm2 jlist', (err, stdout) => {
             if (err || !stdout) {
                 return interaction.editReply({ content: '❌ Failed to connect to PM2 manager.' });
@@ -18,10 +24,10 @@ module.exports = {
             try {
                 const list = JSON.parse(stdout);
                 // Find our process (case-insensitive search)
-                const data = list.find(p => p.name.toLowerCase() === 'ah-music');
+                const data = list.find(p => p.name.toLowerCase() === pm2Name.toLowerCase());
                 
                 if (!data) {
-                    return interaction.editReply({ content: '❌ Could not find an active process named "AH-Music" in PM2.' });
+                    return interaction.editReply({ content: `❌ Could not find an active process named "${pm2Name}" in PM2.` });
                 }
 
                 const outLog = data.pm2_env.pm_out_log_path;

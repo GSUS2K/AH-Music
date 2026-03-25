@@ -5,72 +5,52 @@ A premium, feature-rich Discord music bot engineered for stability and performan
 ## ✨ Key Features
 
 - **🚀 High-Performance Streaming**: Optimized audio pipeline using `yt-dlp` and `@discordjs/voice` for lag-free playback.
+- **📱 Profile Status Sync**: Automatically synchronize your current song with your Discord profile status (includes "Listen Along" and "Join Activity").
 - **📻 24/7 Radio Mode**: Dedicated `/radio` command to stream live stations or keywords (lofi, jazz, etc.) indefinitely.
-- **📜 Integrated Lyrics**: Real-time synchronized lyrics fetched from LRCLIB and YouTube captions, displayed directly in the Discord embed.
+- **📜 Integrated Lyrics**: Real-time synchronized lyrics displayed directly in the Discord embed.
 - **🎮 Interactive Dashboard**: Control playback with intuitive buttons (Pause/Resume, Skip, Stop, Sync Lyrics, Download).
-- **📥 Audio Downloads**: Extract and download high-quality audio directly from Discord (within size limits).
-- **🧠 Auto-Play Engine**: Automatically queues similar tracks when your playlist ends to keep the music going.
-- **🌐 Activity Dashboard**: Includes a React-based frontend for monitoring and controlling the bot via a web interface.
-- **🛡️ Resource Efficient**: Advanced process management to prevent memory leaks and minimize CPU usage on tiny VMs.
+- **🛡️ Smart Management**: Automated memory management and process monitoring via PM2.
+- **🔐 Secure & Portable**: 100% environment-driven configuration for easy deployment and security.
 
 ## 🛠️ Slash Commands
 
-| Command | Description |
-| :--- | :--- |
-| `/play <query>` | Play a song from YouTube, SoundCloud, or direct URL. |
-| `/radio <query>`| Start a 24/7 live radio stream by keyword or URL. |
-| `/status` | View real-time system diagnostics, RAM/CPU usage, and uptime. |
-| `/restart` | Safely restart the bot (Bot Owner only). |
-| `/ping` | Check the bot's current latency. |
-| `/info` | Get information about the bot and its current version. |
+| Command | Description | Permission |
+| :--- | :--- | :--- |
+| `/play <query>` | Play a song from YouTube, SoundCloud, or URL. | Everyone |
+| `/radio <query>`| Start a 24/7 live radio stream by keyword. | Everyone |
+| `/status` | View real-time system and PM2 diagnostics. | Everyone |
+| `/info` | Get system version and dashboard links. | Everyone |
+| `/restart` | Update from GitHub, rebuild, and restart bot. | **Owner Only** |
+| `/logs` | View the last 20 lines of bot execution logs. | **Owner Only** |
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- [FFmpeg](https://ffmpeg.org/download.html) (Ensure it's in your system PATH)
-- A Discord Bot Token (from the [Discord Developer Portal](https://discord.com/developers/applications))
+### 1. Installation
+```bash
+git clone https://github.com/GSUS2K/AH-Music.git
+cd AH-Music
+npm install
+```
 
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/GSUS2K/AH-Music.git
-   cd AH-Music
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up your environment variables:
-   Create a `.env` file in the root directory:
-   ```env
-   DISCORD_TOKEN=your_bot_token
-   DISCORD_CLIENT_ID=your_client_id
-   DISCORD_CLIENT_SECRET=your_client_secret
-   DISCORD_PUBLIC_KEY=your_public_key
-   PORT=3000
-   ```
+### 2. Configuration (.env)
+Create a `.env` file in the root directory:
+```env
+DISCORD_TOKEN=...
+DISCORD_CLIENT_ID=...
+OWNER_ID=your_discord_user_id
 
-### Running the Bot
-- **Development**:
-  ```bash
-  node index.js
-  ```
-- **Production (Recommended with PM2)**:
-  ```bash
-  pm2 start index.js --name AH-Music
-  ```
+# System Paths
+YOUTUBE_COOKIES_PATH=./cookies.txt
+SYSTEM_YTDLP_PATH=/usr/local/bin/yt-dlp
+EXTERNAL_DASHBOARD_URL=https://your-domain.com/activity
+```
 
-## 🧰 Deployment Tips
+### 3. Running
+- **Build the Activity Frontend**: `npm run build-activity`
+- **Start with PM2**: `pm2 start index.js --name AH-Music`
 
-- **Google Cloud (GCP)**: If running on an `e2-micro` instance, use the automated memory purge features built into the bot to keep the process lean.
-- **Cookies**: To bypass YouTube bot detection, place a `cookies.txt` file in the root directory.
-- **Activity Frontend**: To build the React dashboard, run:
-  ```bash
-  npm run build-activity
-  ```
+## 🔄 Smart Updates
+This bot supports **Remote Updates**. If you push changes to your GitHub branch, you can simply run `/restart` in Discord. The bot will automatically pull the latest code, rebuild the search engine/frontend, and refresh the process.
 
-Also the bot can be run as an activity in the server.
-Is connected to express server. Get a domain from duckdns and host in Caddy!
-Make sure to use the URL in Oauth redirects and URL mapping under activities in the discord developer portal!
 ---
+*Built with ❤️ for GSUS*
