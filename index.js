@@ -74,6 +74,7 @@ app.post('/api/token', async (req, res) => {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         });
         res.json({ access_token: response.data.access_token });
+        console.log('[Auth API] Token exchange successful for User');
     } catch (err) {
         console.error('[Auth API] Token exchange failed:', err.response?.data || err.message);
         res.status(500).json({ error: 'Failed to exchange token' });
