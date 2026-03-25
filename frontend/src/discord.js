@@ -19,7 +19,6 @@ export async function setupDiscordSdk() {
       client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
       response_type: "code",
       state: "",
-      prompt: "none",
       scope: [
         "identify",
         "guilds",
