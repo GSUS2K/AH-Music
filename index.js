@@ -258,7 +258,8 @@ apiRouter.all('/interactions', async (req, res) => {
     res.status(200).end();
 });
 
-// MOUNT ROUTER ONLY ON ACTIVITY PATH TO FORCE CLIENT REFRESH
+// MOUNT ROUTER ON BOTH PATHS FOR COMPATIBILITY
+app.use('/api', apiRouter);
 app.use('/activity/api', apiRouter);
 
 // Support /activity subpath and other SPA routes by serving index.html
