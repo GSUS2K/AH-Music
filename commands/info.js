@@ -22,7 +22,7 @@ module.exports = {
                 },
                 { 
                     name: '🛠️ Aʀᴄʜɪᴛᴇᴄᴛᴜʀᴇ', 
-                    value: '```yaml\nRuntime: Node.js v22.x\nLibrary: Discord.js v14.16.3\nDashboard: https://aftrhrsmsc.duckdns.org/activity\nProxy: Caddy Reverse Proxy```',
+                    value: `\`\`\`yaml\nRuntime: Node.js v22.x\nLibrary: Discord.js v14.16.3\nDashboard: ${process.env.EXTERNAL_DASHBOARD_URL || 'https://aftrhrsmsc.duckdns.org/activity'}\nProxy: Caddy Reverse Proxy\`\`\``,
                     inline: false 
                 },
                 { 
