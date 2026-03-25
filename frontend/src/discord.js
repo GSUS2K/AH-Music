@@ -19,7 +19,7 @@ export async function setupDiscordSdk() {
       client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
       response_type: "code",
       state: "",
-      scope: ["identify"],
+      scope: ["identify", "rpc.activities.write"],
     });
 
     // 2. Exchange the code for an access token via our BACKEND
