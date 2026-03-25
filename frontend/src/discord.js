@@ -7,8 +7,8 @@ export async function setupDiscordSdk() {
     discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID);
   }
   
-  // Add a 5s heartbeat timeout to avoid hanging in non-Discord browsers
-  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("SDK Ready Timeout")), 5000));
+  // Add a 20s heartbeat timeout to avoid hanging in non-Discord browsers
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("SDK Ready Timeout")), 20000));
   await Promise.race([discordSdk.ready(), timeout]).catch(err => {
     console.warn("[Discord SDK] Ready failed or timed out:", err.message);
   });
@@ -19,12 +19,7 @@ export async function setupDiscordSdk() {
       client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
       response_type: "code",
       state: "",
-      scope: [
-        "identify",
-        "guilds",
-        "rpc.activities.read",
-        "rpc.activities.write"
-      ],
+      scope: ["identify"],
     });
 
     // 2. Exchange the code for an access token via our BACKEND
