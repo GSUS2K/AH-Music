@@ -13,15 +13,16 @@ module.exports = {
             return interaction.reply({ content: 'You are not authorized to use this command.', ephemeral: true });
         }
 
-        await interaction.reply({ content: 'Initiating process refresh sequence...', ephemeral: true });
+        await interaction.reply({ content: '🚀 **Update & Reset Sequence Initiated**\n- Pulling latest nebula-code...\n- Rebuilding neural-activity...\n- Refreshing process...', ephemeral: true });
         
-        // Trigger actual restart via PM2
-        exec('pm2 restart AH-Music', (pm2Err, stdout, stderr) => {
-            if (pm2Err) {
-                console.error('[Restart] PM2 Failure:', pm2Err.message);
-                return interaction.followUp({ content: `❌ Critical Error: ${pm2Err.message}`, ephemeral: true });
+        const command = 'git pull origin main && npm run build-activity && pm2 restart AH-Music';
+        
+        exec(command, (err, stdout, stderr) => {
+            if (err) {
+                console.error('[Restart] Failure:', err.message);
+                return interaction.followUp({ content: `❌ **Sequence Aborted**: ${err.message}`, ephemeral: true });
             }
-            console.log('[Restart] PM2 Success:', stdout);
+            console.log('[Restart] Success:', stdout);
         });
     }
 };
