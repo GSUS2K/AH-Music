@@ -90,6 +90,8 @@ function App() {
     };
 
     initDiscord();
+    console.log("Current API_BASE:", API_BASE);
+    remoteLog("Current API_BASE: " + API_BASE);
     fetchSystemStats();
     const statsInterval = setInterval(fetchSystemStats, 10000);
     return () => {
