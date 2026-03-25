@@ -41,12 +41,10 @@ export async function setupDiscordSdk() {
     // 3. Authenticate with the obtained access token
     await discordSdk.commands.authenticate({ access_token });
   } catch (err) {
-    console.warn("[Discord SDK] Full Auth skipped/failed:", err.message);
-    // Visual debug for Discord Activity
-    if (!err.message.includes("Non-Discord")) {
-      alert("Auth Error: " + err.message);
-    }
-    // We don't re-throw here so the app can still initialize in "SDK-Lite" mode
+    const msg = err.message || JSON.stringify(err);
+    console.warn("[Discord SDK] Full Auth skipped/failed:", msg);
+    // Be very aggressive with the alert
+    alert("CRITICAL AUTH ERROR: " + msg);
   }
 
   return discordSdk;
