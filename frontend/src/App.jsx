@@ -335,11 +335,6 @@ function App() {
       <div className="scanline" />
       <div className="vignette" />
       
-      {/* TEMP DEBUG BANNER */}
-      <div style={{ background: 'red', color: 'white', padding: '10px', position: 'fixed', top: 0, left: 0, zIndex: 10000, fontSize: '12px' }}>
-        DEBUG: {loading ? 'LOADING...' : 'READY'} | AUTH: {auth?.user?.username || 'NULL'} | ENV: {import.meta.env.VITE_DISCORD_CLIENT_ID}
-      </div>
-
       {currentTrack && (
         <div className="adaptive-bg" style={{ 
           backgroundImage: `url(${getProxyUrl(currentTrack.thumbnail)})`,
