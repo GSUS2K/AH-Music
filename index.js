@@ -57,6 +57,8 @@ app.use(express.json({
 // --- AGGRESSIVE FRONTEND SERVING ---
 const distPath = path.join(__dirname, 'frontend', 'dist');
 console.log('[Startup] Mapping static assets to:', distPath);
+// Serve static assets at both the root and the /activity subpath to support all URL variations
+app.use('/activity', express.static(distPath));
 app.use(express.static(distPath));
 
 // Auth and Proxy Endpoints (must be above catch-all)
