@@ -34,8 +34,8 @@ export async function setupDiscordSdk() {
     const { access_token } = await response.json();
 
     // 3. Authenticate with the obtained access token
-    await discordSdk.commands.authenticate({ access_token });
-    alert("SUCCESS: Discord Handshake Complete! You are now logged in.");
+    const auth = await discordSdk.commands.authenticate({ access_token });
+    return { sdk: discordSdk, auth };
   } catch (err) {
     const msg = err.message || JSON.stringify(err);
     console.warn("[Discord SDK] Full Auth skipped/failed:", msg);
@@ -43,7 +43,7 @@ export async function setupDiscordSdk() {
     alert("CRITICAL AUTH ERROR: " + msg);
   }
 
-  return discordSdk;
+  return { sdk: discordSdk, auth: null };
 }
 
 export default discordSdk;

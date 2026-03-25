@@ -50,20 +50,17 @@ function App() {
       try {
         console.log("Starting SDK Init...");
         remoteLog("Starting SDK Init on " + API_BASE);
-        const sdk = await setupDiscordSdk();
+        const { sdk, auth: authData } = await setupDiscordSdk();
         discordSdkRef.current = sdk;
         
         if (sdk) {
           console.log("SDK Ready. Guild:", sdk.guildId);
           remoteLog("SDK Ready. Guild: " + sdk.guildId);
-          try {
-            // Attempt full handshake
-            const authData = await sdk.commands.authenticate();
+          if (authData) {
             setAuth(authData);
             remoteLog("Full Auth Successful for " + authData.user.username);
-          } catch (authErr) {
-            console.warn('Handshake failed, using Guest Context:', authErr);
-            remoteLog("Handshake Failed", authErr.message);
+          } else {
+            console.warn('Handshake failed or skipped, using Guest Context');
             setAuth({
               guild_id: sdk.guildId,
               channel_id: sdk.channelId,

@@ -252,6 +252,35 @@ app.get('/api/lyrics', async (req, res) => {
     }
 });
 
+app.get('/api/search', async (req, res) => {
+    const query = req.query.q;
+    if (!query) return res.status(400).json({ error: 'Missing query' });
+    
+    try {
+        const youtubedl = require('youtube-dl-exec');
+        const urlQuery = query.startsWith('http') ? query : `ytsearch5:${query}`;
+        const options = { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, flatPlaylist: true };
+        
+        const cookiesPath = process.env.YOUTUBE_COOKIES_PATH || './cookies.txt';
+        if (require('fs').existsSync(cookiesPath)) options.cookies = cookiesPath;
+
+        const info = await youtubedl(urlQuery, options);
+        const results = (info.entries || [info]).map(entry => ({
+            id: entry.id,
+            title: entry.title,
+            thumbnail: entry.thumbnail,
+            author: entry.uploader || entry.channel || 'Unknown',
+            url: entry.webpage_url || entry.url,
+            duration: (entry.duration || 0) * 1000
+        })).filter(r => r.id);
+
+        res.json(results);
+    } catch (err) {
+        console.error('[API Search] Failed:', err.message);
+        res.status(500).json({ error: 'Search failed' });
+    }
+});
+
 app.all('/api/interactions', async (req, res) => {
     if (req.method === 'GET') {
         return res.status(200).send('Interactions Endpoint is ACTIVE. This URL is for Discord POST requests only. Please use it in the Developer Portal.');
