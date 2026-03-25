@@ -65,7 +65,11 @@ app.use(express.static(distPath));
 
 // Debug: Log all API requests to see if frontend is talking to backend
 app.use('/api', (req, res, next) => {
-    console.log(`[API Request] ${req.method} ${req.url}`);
+    console.log(`[API-ROOT Request] ${req.method} ${req.url}`);
+    next();
+});
+app.use('/activity/api', (req, res, next) => {
+    console.log(`[API-ACTIVITY Request] ${req.method} ${req.url}`);
     next();
 });
 
