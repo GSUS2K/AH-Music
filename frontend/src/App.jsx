@@ -5,7 +5,7 @@ import { setupDiscordSdk } from './discord';
 import axios from 'axios';
 import './App.css';
 
-const API_BASE = window.location.origin;
+const API_BASE = 'https://aftrhrsmsc.duckdns.org';
 
 const remoteLog = (msg, err = '') => {
   axios.post(`${API_BASE}/api/log`, { message: msg, error: err }).catch(() => {});
