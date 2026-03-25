@@ -300,7 +300,11 @@ function App() {
   };
 
   const handleAdd = async (track) => {
-    if (!auth?.guild_id) return;
+    if (!auth?.guild_id) {
+        remoteLog("Click denied: Missing Guild Context", track.title);
+        return;
+    }
+    remoteLog("Click accepted: Adding " + track.title);
     setAddingIds(prev => new Set(prev).add(track.id));
     try {
       await axios.post(`${API_BASE}/api/add/${auth.guild_id}`, { 
@@ -343,7 +347,7 @@ function App() {
       <header className="header glass">
         <div className="logo">
           <Zap size={22} color="#00f2ff" />
-          <span className="logo-text">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>// v2.7-HOTFIX</span></span>
+          <span className="logo-text">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>// v3.0-PREMIUM</span></span>
         </div>
         
         <div className="telemetry-panel hide-mobile">

@@ -1,5 +1,12 @@
 require('dotenv').config();
 
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const ffmpegBinaryPath = require('@ffmpeg-installer/ffmpeg').path;
 const path = require('path');
 const os = require('os');
@@ -144,6 +151,8 @@ apiRouter.get('/search', async (req, res) => {
             url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
         })).filter(r => r.id);
         res.json(results);
+        console.log(`[API Search] Found ${results.length} results for: ${q}`);
+        if (results.length > 0) console.log(`[API Search] Sample Thumbnail: ${results[0].thumbnail}`);
     } catch (err) {
         console.error('[API Search] CRITICAL FAILURE:', err.message);
         if (err.stderr) console.error('[API Search] Stderr Detail:', err.stderr);
@@ -225,7 +234,12 @@ apiRouter.get('/proxy', async (req, res) => {
     const url = req.query.url;
     if (!url) return res.status(400).send('Missing URL');
     try {
-        const response = await axios.get(url, { responseType: 'arraybuffer' });
+        const response = await axios.get(url, { 
+            responseType: 'arraybuffer',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
         res.set('Content-Type', response.headers['content-type']);
         res.set('Cache-Control', 'public, max-age=86400');
         res.send(response.data);
