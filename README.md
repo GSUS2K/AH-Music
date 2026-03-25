@@ -53,4 +53,3 @@ EXTERNAL_DASHBOARD_URL=https://your-domain.com/activity
 This bot supports **Remote Updates**. If you push changes to your GitHub branch, you can simply run `/restart` in Discord. The bot will automatically pull the latest code, rebuild the search engine/frontend, and refresh the process.
 
 ---
-*Built with ❤️ for GSUS*
