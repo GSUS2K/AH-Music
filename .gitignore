@@ -1,3 +1,10 @@
 node_modules
 .env
 .DS_Store
+docs/
+*.tar.gz
+test.mp3
+cookies.txt
+*.log
+test-*.js
+frontend/package-lock 2.json

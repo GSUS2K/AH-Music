@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const ffmpegBinaryPath = require('@ffmpeg-installer/ffmpeg').path;
 const path = require('path');
+const os = require('os');
 const fs = require('fs');
 
 // Inject yt-dlp binary into PATH for all child processes
@@ -99,14 +100,26 @@ app.get('/api/queue/:guildId', (req, res) => {
     res.json({
         isPlaying: queue.player ? queue.player.state.status === 'playing' : false,
         voiceChannel: queue.voiceChannel ? queue.voiceChannel.name : 'Unknown',
+        currentMs: queue.player ? (queue.songs[0]?.resource?.playbackDuration || 0) : 0,
+        lyricOffsetMs: queue.lyricOffsetMs || 0,
         songs: queue.songs.map(s => ({
             title: s.title,
             author: s.author,
             thumbnail: s.thumbnail,
             duration: s.totalDurationMs,
-            syncedLyrics: s.syncedLyrics
+            syncedLyrics: s.syncedLyrics,
         }))
     });
+
+    // Reset idle timer whenever queue is accessed via Activity
+    if (queue.idleTimer) clearTimeout(queue.idleTimer);
+    queue.idleTimer = setTimeout(() => {
+        console.log(`[Resources] Guild ${guildId} idle for 10m. Purging resources...`);
+        const { cleanup } = require('./commands/play.js');
+        cleanup(guildId, client.queues);
+        if (queue.connection) queue.connection.destroy();
+        client.queues.delete(guildId);
+    }, 10 * 60 * 1000); 
 });
 
 app.get('/api/search', async (req, res) => {
@@ -134,6 +147,54 @@ app.get('/api/search', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+app.post('/api/sync/:guildId', (req, res) => {
+    const { guildId } = req.params;
+    const { offset } = req.body;
+    const queue = client.queues.get(guildId);
+    if (!queue) return res.status(404).json({ error: 'No active queue' });
+    
+    queue.lyricOffsetMs = (queue.lyricOffsetMs || 0) + (parseInt(offset) || 0);
+    console.log(`[Lyrics] Manual sync adjusted for ${guildId}: ${queue.lyricOffsetMs}ms`);
+    res.json({ success: true, newOffset: queue.lyricOffsetMs });
+});
+
+app.post('/api/source/:guildId', async (req, res) => {
+    const { guildId } = req.params;
+    const queue = client.queues.get(guildId);
+    if (!queue || !queue.songs[0]) return res.status(404).json({ error: 'No active track' });
+    
+    console.log(`[Lyrics] Changing source for ${guildId}: ${queue.songs[0].title}`);
+    const play = require('./commands/play.js');
+    const lyricsData = await play.fetchSyncedLyrics(queue.songs[0].title, queue.songs[0].author, queue.songs[0].totalDurationMs / 1000, null, queue.songs[0].actualUrl, true);
+    if (lyricsData) {
+        queue.songs[0].syncedLyrics = lyricsData;
+        res.json({ success: true, lyrics: lyricsData.lyrics });
+    } else {
+        res.status(404).json({ error: 'No alternative lyrics found' });
+    }
+});
+
+app.get('/api/system', (req, res) => {
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const usedMem = totalMem - freeMem;
+    const botMem = process.memoryUsage().rss;
+    
+    res.json({
+        mem: {
+            total: totalMem,
+            free: freeMem,
+            used: usedMem,
+            percent: ((usedMem / totalMem) * 100).toFixed(1),
+            bot: botMem
+        },
+        uptime: process.uptime(),
+        load: os.loadavg()[0].toFixed(2),
+        platform: os.platform(),
+        activeQueues: client.queues.size
+    });
 });
 
 app.get('/api/proxy', async (req, res) => {
@@ -330,10 +391,14 @@ app.post('/api/control/:guildId', async (req, res) => {
                 player.unpause();
                 break;
             case 'skip':
+                const { cleanup } = require('./commands/play.js');
+                cleanup(guildId, client.queues);
                 player.stop();
                 break;
             case 'stop':
             case 'clear':
+                const playCmd = require('./commands/play.js');
+                playCmd.cleanup(guildId, client.queues);
                 client.queues.delete(guildId);
                 connection.destroy();
                 break;

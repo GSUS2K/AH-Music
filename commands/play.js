@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, entersState, VoiceConnectionStatus, AudioPlayerStatus } = require('@discordjs/voice');
 const youtubedl = require('youtube-dl-exec');
+const fs = require('fs');
 
 const https = require('https');
 const http = require('http');
@@ -33,9 +34,17 @@ module.exports = {
             // Use yt-dlp for search and metadata
              try {
                 const urlQuery = query.startsWith('http') ? query : `ytsearch1:${query}`;
-                const info = await youtubedl(urlQuery, { 
+                const options = { 
                     dumpSingleJson: true, noCheckCertificates: true, noWarnings: true
-                });
+                };
+                
+                if (fs.existsSync('./cookies.txt')) {
+                    options.cookies = './cookies.txt';
+                    console.log('[Play] Using cookies.txt for search');
+                }
+                options.extractorArgs = 'youtube:player_client=android_vr';
+
+                const info = await youtubedl(urlQuery, options);
                 const entry = info.entries ? info.entries[0] : info;
                 if (!entry) throw new Error('No results');
                 title = entry.title || 'Unknown Track';
@@ -47,14 +56,15 @@ module.exports = {
 
                 // Check for chapters to find intro offset
                 if (entry.chapters && entry.chapters.length > 0) {
-                    const musicChapter = entry.chapters.find(c => MUSIC_CHAPTER_REGEX.test(c.title));
+                    const musicChapter = entry.chapters.find(c => /music|song|start/i.test(c.title));
                     if (musicChapter && musicChapter.start_time > 0) {
                         introOffsetMs = musicChapter.start_time * 1000;
-                        console.log(`[Lyrics] Detected intro offset from chapter: ${introOffsetMs}ms (${musicChapter.title})`);
+                        console.log(`[Lyrics] Detected music start offset at: ${introOffsetMs}ms (${musicChapter.title})`);
                     }
                 }
             } catch (searchErr) {
                 console.error('[Play] yt-dlp search failed:', searchErr.message);
+                if (searchErr.stderr) console.error('[Play] Detail:', searchErr.stderr);
                 return interaction.editReply({ content: "❌ Request failed - could not find the song or it may be private." });
             }
 
@@ -138,10 +148,16 @@ module.exports = {
                     await queue.textChannel.send({ content: "Generating the next Up-Next Autoplay track natively..." }).catch(() => null);
                 }
                 const mixUrl = `https://www.youtube.com/watch?v=${queue.lastPlayedId}&list=RD${queue.lastPlayedId}`;
-                const info = await youtubedl(mixUrl, { 
+                const options = { 
                     dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, 
                     playlistItems: '2', extractAudio: true
-                }).catch(() => null);
+                };
+
+                if (fs.existsSync('./cookies.txt')) {
+                    options.cookies = './cookies.txt';
+                }
+
+                const info = await youtubedl(mixUrl, options).catch(() => null);
                 
                 const entry = info && info.entries ? info.entries[0] : null;
                 if (entry && entry.id) {
@@ -163,8 +179,19 @@ module.exports = {
 
         if (!queue || queue.songs.length === 0) {
             if (queue && queue.connection) queue.connection.destroy();
+            if (queue && queue.currentProcess) {
+                queue.currentProcess.kill('SIGKILL');
+                queue.currentProcess = null;
+            }
+            if (queue && queue.progressInterval) clearInterval(queue.progressInterval);
             queueMap.delete(guildId);
             return;
+        }
+
+        // --- NEW: Force cleanup of any old stale process before starting next ---
+        if (queue.currentProcess) {
+            queue.currentProcess.kill('SIGKILL');
+            queue.currentProcess = null;
         }
 
         const track = queue.songs[0];
@@ -206,11 +233,17 @@ module.exports = {
         try {
             if (isLive) {
                 // Get the direct m3u8 playlist URL from yt-dlp (no ffmpeg needed for this)
-                const m3u8Url = await youtubedl(track.actualUrl, {
+                const options = {
                     getUrl: true,
                     f: 'best[protocol=m3u8_native]/best',
                     noCheckCertificates: true
-                }).catch(() => null);
+                };
+
+                if (fs.existsSync('./cookies.txt')) {
+                    options.cookies = './cookies.txt';
+                }
+
+                const m3u8Url = await youtubedl(track.actualUrl, options).catch(() => null);
 
                 if (m3u8Url) {
                     const getUrl = (url) => new Promise((resolve, reject) => {
@@ -279,22 +312,27 @@ module.exports = {
                     console.error('[Stream] Failed to get live stream URL');
                 }
             } else {
-                const proc = youtubedl.exec(track.actualUrl, {
-                    output: '-',
-                    format: 'bestaudio[ext=webm]/bestaudio/best',
-                    noCheckCertificates: true,
-                    noWarnings: true,
-                    quiet: true,
-                    forceIpv4: true
-                }, { stdio: ['ignore', 'pipe', 'pipe'] });
+                const { spawn } = require('child_process');
+                const ytdlpPath = process.env.YOUTUBE_DL_PATH || 'yt-dlp';
+                
+                const proc = spawn(ytdlpPath, [
+                    track.actualUrl,
+                    '--output', '-',
+                    '--format', 'bestaudio[ext=webm]/bestaudio/best',
+                    '--no-check-certificates',
+                    '--no-warnings',
+                    '--quiet',
+                    '--force-ipv4',
+                    '--cookies', '/home/gsus/ah-music-bot/cookies.txt',
+                    '--extractor-args', 'youtube:player_client=android_vr',
+                    '--js-runtimes', 'node:/usr/local/bin/node'
+                ]);
+
+                queue.currentProcess = proc; // Store process for future cleanup
 
                 proc.stderr.on('data', (data) => {
                     const msg = data.toString();
                     if (msg.includes('Error') || msg.includes('error')) console.error(`[Stream Error] yt-dlp: ${msg.trim()}`);
-                });
-
-                proc.on('close', (code) => {
-                    if (code !== 0 && code !== null) console.warn(`[Stream] yt-dlp exited with code ${code}`);
                 });
 
                 resource = createAudioResource(proc.stdout);
@@ -349,13 +387,19 @@ module.exports = {
             const currentStr = `${Math.floor(currentMs / 60000)}:${Math.floor((currentMs % 60000) / 1000).toString().padStart(2, '0')}`;
             const reqValue = track.requester === 'Autoplay' ? 'Autoplay' : `<@${track.requester}>`;
 
+            const manualOffsetMs = queue.lyricOffsetMs || 0;
+            const autoOffsetMs = track.introOffsetMs || 0;
+            const totalOffsetMs = autoOffsetMs + manualOffsetMs;
+
             let description = `**${track.title}**\n*by ${track.author}*\n\n\`${currentStr} / ${durationStr}\`\n${bar}`;
+            
+            if (totalOffsetMs !== 0) {
+                const sign = totalOffsetMs > 0 ? '+' : '';
+                description += `\n\n\`Sync: ${sign}${totalOffsetMs}ms (${autoOffsetMs}ms Intro | ${manualOffsetMs}ms Manual)\``;
+            }
 
             if (track.syncedLyrics && track.syncedLyrics.lyrics && track.syncedLyrics.lyrics.length > 0) {
-                const manualOffsetMs = queue.lyricOffsetMs || 0;
-                const autoOffsetMs = track.introOffsetMs || 0;
-                const offsetMs = autoOffsetMs + manualOffsetMs;
-                const adjustedMs = currentMs - offsetMs;
+                const adjustedMs = currentMs - totalOffsetMs;
                 const lines = track.syncedLyrics.lyrics;
                 const index = lines.findLastIndex(l => l.time <= adjustedMs);
                 
@@ -421,6 +465,21 @@ module.exports = {
 
         if (queue.progressInterval) clearInterval(queue.progressInterval);
         queue.progressInterval = progressInterval;
+    },
+
+    cleanup: (guildId, queueMap) => {
+        const queue = queueMap.get(guildId);
+        if (!queue) return;
+
+        if (queue.currentProcess) {
+            console.log(`[Cleanup] Explicitly killing process for Guild ${guildId}`);
+            queue.currentProcess.kill('SIGKILL');
+            queue.currentProcess = null;
+        }
+        
+        if (queue.progressInterval) {
+            clearInterval(queue.progressInterval);
+        }
     }
 };
 
@@ -428,7 +487,7 @@ module.exports = {
 module.exports.playNextSong = module.exports.playNextSong_impl = module.exports.playNextSong;
 
 
-async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQuery, videoUrl) {
+async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQuery, videoUrl, skipFirst = false) {
     console.log(`[Lyrics] Fetching: "${trackName}" by "${artistName}" (${durationSec}s)`);
     try {
         let artist = (artistName || "").replace(/ - Topic|Official|VEVO|Music|Video/gi, '').trim();
@@ -453,9 +512,14 @@ async function fetchSyncedLyrics(trackName, artistName, durationSec, originalQue
         response = await fetch(searchUrl);
         if (response.ok) {
             const results = await response.json();
-            const best = results
-                .filter(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60)
-                .sort((a, b) => Math.abs(a.duration - durationSec) - Math.abs(b.duration - durationSec))[0];
+            let matched = results.filter(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 60);
+            
+            if (skipFirst && matched.length > 1) {
+                // Shift results or pick next one
+                matched = matched.slice(1);
+            }
+            
+            const best = matched.sort((a, b) => Math.abs(a.duration - durationSec) - Math.abs(b.duration - durationSec))[0];
 
             if (best) {
                 console.log(`[Lyrics] Search fallback found: "${best.trackName}" (${best.duration}s)`);

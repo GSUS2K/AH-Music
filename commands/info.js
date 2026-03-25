@@ -17,12 +17,12 @@ module.exports = {
             .addFields(
                 { 
                     name: '🌐 Hᴏsᴛɪɴɢ Pʟᴀᴛғᴏʀᴍ', 
-                    value: '```yaml\nProvider: Google Cloud (GCP)\nInstance: Linux VM\nLocation: US-East\nUptime: ' + uptimeStr + '```',
+                    value: '```yaml\nProvider: Google Cloud Platform (E2-Micro)\nInstance: Ubuntu 24.04 (x86_64)\nLocation: The Dalles, Oregon (US)\nUptime: ' + uptimeStr + '```',
                     inline: false 
                 },
                 { 
                     name: '🛠️ Aʀᴄʜɪᴛᴇᴄᴛᴜʀᴇ', 
-                    value: '```yaml\nRuntime: Node.js v24.13.0\nLibrary: Discord.js v14\nBackend: Express 5.x\nFrontend: Vite + React 18\nProxy: Cloudflare Tunnel```',
+                    value: '```yaml\nRuntime: Node.js v22.x\nLibrary: Discord.js v14.16.3\nDashboard: https://aftrhrsmsc.duckdns.org/activity\nProxy: Caddy Reverse Proxy```',
                     inline: false 
                 },
                 { 
@@ -31,7 +31,7 @@ module.exports = {
                     inline: false 
                 }
             )
-            .setFooter({ text: `System Version: 2.1.0-STABLE | Ping: ${client.ws.ping}ms` })
+            .setFooter({ text: `System Version: 2.2.0-STABLE | Ping: ${client.ws.ping}ms` })
             .setTimestamp();
 
         return interaction.reply({ embeds: [embed] });

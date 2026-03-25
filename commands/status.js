@@ -32,8 +32,8 @@ module.exports = {
             }
 
             const embed = new EmbedBuilder()
-                .setTitle('Sʏsᴛᴇᴍ Dɪᴀɢɴᴏsᴛɪᴄs')
-                .setColor(0x2B2D31)
+                .setTitle('Sʏsᴛᴇᴍ Dɪᴀɢɴᴏsᴛɪᴄs (Oʀᴀᴄʟᴇ Cʟᴏᴜᴅ)')
+                .setColor(0xED4245)
                 .setThumbnail(interaction.client.user.displayAvatarURL())
                 .addFields(
                     { 

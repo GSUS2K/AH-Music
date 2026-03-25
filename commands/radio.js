@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const youtubedl = require('youtube-dl-exec');
+const fs = require('fs');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -24,11 +25,17 @@ module.exports = {
             
             // If not a URL, search YouTube for a matching live stream using yt-dlp
             if (!input.startsWith('http')) {
-                const info = await youtubedl(`ytsearch1:${input} live`, {
+                const options = {
                     dumpSingleJson: true,
                     noCheckCertificates: true,
                     noWarnings: true
-                }).catch(() => null);
+                };
+
+                if (fs.existsSync('./cookies.txt')) {
+                    options.cookies = './cookies.txt';
+                }
+
+                const info = await youtubedl(`ytsearch1:${input} live`, options).catch(() => null);
 
                 const entry = info?.entries?.[0] || info;
                 if (!entry) return interaction.followUp("No results found for that radio station.");

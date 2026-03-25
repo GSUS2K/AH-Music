@@ -451,6 +451,81 @@ body {
   50% { height: 35px; }
 }
 
+.adaptive-bg {
+  position: fixed;
+  top: -10%; left: -10%; right: -10%; bottom: -10%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(120px) saturate(2);
+  z-index: -1;
+  transition: all 1.5s cubic-bezier(0.19, 1, 0.22, 1);
+  transform: scale(1.1);
+}
+
+.telemetry-panel {
+  display: flex;
+  gap: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 8px;
+  font-weight: 900;
+  opacity: 0.5;
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent-primary);
+  font-family: monospace;
+}
+
+.stat-bar-bg {
+  width: 40px;
+  height: 2px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  transition: width 0.5s;
+}
+
+.visualizer {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 25px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.visual-bar {
+  width: 3px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  animation: barPulse 0.8s ease-in-out infinite;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
 /* Dynamics for visualizer */
 .visual-bar:nth-child(1) { animation-duration: 0.7s; }
 .visual-bar:nth-child(2) { animation-duration: 0.9s; }

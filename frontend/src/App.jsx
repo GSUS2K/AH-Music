@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, Zap, Search, Plus, Loader2, ListMusic, Music, Globe, User, BookOpen, Trash2, Rewind, FastForward, ExternalLink } from 'lucide-react';
+import { Play, Pause, SkipForward, Zap, Search, Plus, Loader2, ListMusic, Music, Globe, User, BookOpen, Trash2, Rewind, FastForward, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { setupDiscordSdk } from './discord';
 import axios from 'axios';
@@ -11,14 +11,17 @@ function App() {
   const [auth, setAuth] = useState(null);
   const [queue, setQueue] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [voiceChannel, setVoiceChannel] = useState('');
+  const [voiceChannel, setVoiceChannel] = useState('Unknown');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0); 
+  const [lyricOffsetMs, setLyricOffsetMs] = useState(0); 
+  const [lyrics, setLyrics] = useState([]); 
   
   // Lyrics State
-  const [lyrics, setLyrics] = useState([]);
   const [isLyricsLoading, setIsLyricsLoading] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [activeLyricIndex, setActiveLyricIndex] = useState(-1);
+  const [systemStats, setSystemStats] = useState(null);
   const lyricRef = useRef(null);
   const activeLyricRef = useRef(null);
 
@@ -27,6 +30,8 @@ function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [addingIds, setAddingIds] = useState(new Set());
+  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
+  const scrollTimeoutRef = useRef(null);
   const [lastAdded, setLastAdded] = useState(null);
 
   const getProxyUrl = (url) => url ? `${API_BASE}/api/proxy?url=${encodeURIComponent(url)}` : null;
@@ -58,7 +63,7 @@ function App() {
           
           if (sdk.guildId) {
             fetchQueue(sdk.guildId);
-            pollInterval = setInterval(() => fetchQueue(sdk.guildId), 3000);
+            pollInterval = setInterval(() => fetchQueue(sdk.guildId), 5000);
           }
         } else {
           throw new Error("SDK instance was not created");
@@ -78,18 +83,41 @@ function App() {
     };
 
     initDiscord();
-    return () => clearInterval(pollInterval);
+    fetchSystemStats();
+    const statsInterval = setInterval(fetchSystemStats, 10000);
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(statsInterval);
+    };
   }, []);
 
   const fetchQueue = async (guildId) => {
     try {
       const resp = await axios.get(`${API_BASE}/api/queue/${guildId}`);
-      setQueue(resp.data.songs || []);
       setIsPlaying(resp.data.isPlaying);
-      setVoiceChannel(resp.data.voiceChannel);
+      setVoiceChannel(resp.data.voiceChannel || 'Unknown');
+      setLyricOffsetMs(resp.data.lyricOffsetMs || 0);
+      
+      const serverSongs = resp.data.songs || [];
+      setQueue(serverSongs);
+      
+      if (serverSongs.length > 0) {
+        // Sync local clock with server if drift > 500ms
+        const drift = Math.abs(currentTime - resp.data.currentMs);
+        if (drift > 500) {
+          setCurrentTime(resp.data.currentMs);
+        }
+      }
     } catch (err) {
       if (err.response?.status === 404) setQueue([]);
     }
+  };
+
+  const fetchSystemStats = async () => {
+    try {
+      const resp = await axios.get(`${API_BASE}/api/system`);
+      setSystemStats(resp.data);
+    } catch (err) { console.error("Telemetry error:", err); }
   };
 
   const currentTrack = queue?.[0];
@@ -99,18 +127,43 @@ function App() {
     let interval;
     if (isPlaying && currentTrack) {
         interval = setInterval(() => {
-            setCurrentTime(prev => prev + 500);
-        }, 500);
+            setCurrentTime(prev => prev + 250); // Higher resolution for smoother scroll
+        }, 250);
     }
     return () => clearInterval(interval);
   }, [isPlaying, currentTrack]);
 
-  // Handle auto-scroll
+  // Handle active lyric index calculation in a side-effect (safe from render loop)
   useEffect(() => {
-    if (activeLyricRef.current) {
+    if (!lyrics || lyrics.length === 0) {
+      setActiveLyricIndex(-1);
+      return;
+    }
+    const offsetMs = (currentTrack?.introOffsetMs || 0) + (lyricOffsetMs || 0);
+    const effectiveTime = currentTime - offsetMs;
+    
+    const idx = lyrics.findLastIndex(l => l.time <= effectiveTime);
+    if (idx !== -1 && idx !== activeLyricIndex) {
+      setActiveLyricIndex(idx);
+    }
+  }, [currentTime, lyrics, currentTrack?.introOffsetMs, lyricOffsetMs]);
+
+  // Handle auto-scroll only when index changes
+  useEffect(() => {
+    if (activeLyricRef.current && !isAutoScrollPaused) {
         activeLyricRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [currentTime]);
+  }, [activeLyricIndex, isAutoScrollPaused]);
+
+  const handleManualScroll = () => {
+    setIsAutoScrollPaused(true);
+    if (window.scrollTimeout) clearTimeout(window.scrollTimeout);
+    window.scrollTimeout = setTimeout(() => {
+      setIsAutoScrollPaused(false);
+    }, 10000); // 10s pause
+  };
+
+  const [currentTrackTitle, setCurrentTrackTitle] = useState("");
 
   const fetchLyrics = async (trackTitle, trackAuthor, trackDuration, trackUrl) => {
     if (!trackTitle) return;
@@ -119,7 +172,12 @@ function App() {
       const resp = await fetch(`${API_BASE}/api/lyrics?track=${encodeURIComponent(trackTitle)}&artist=${encodeURIComponent(trackAuthor || '')}&duration=${(trackDuration || 0)/1000}&url=${encodeURIComponent(trackUrl || '')}&format=json`);
       const data = await resp.json();
       setLyrics(Array.isArray(data) ? data : []);
-      setCurrentTime(0); // Reset clock for new song
+      
+      // Only reset clock if the track title changed
+      if (trackTitle !== currentTrackTitle) {
+        setCurrentTime(0);
+        setCurrentTrackTitle(trackTitle);
+      }
     } catch (err) {
       console.error("Lyrics fetch failed:", err);
       setLyrics([]);
@@ -144,6 +202,28 @@ function App() {
       await axios.post(`${API_BASE}/api/control/${auth.guild_id}`, { action });
       fetchQueue(auth.guild_id);
     } catch (err) { console.error("Control error:", err); }
+  };
+
+  const handleSync = async (offset) => {
+    if (!auth?.guild_id) return;
+    try {
+      await axios.post(`${API_BASE}/api/sync/${auth.guild_id}`, { offset });
+      fetchQueue(auth.guild_id);
+    } catch (err) { console.error("Sync error:", err); }
+  };
+
+  const handleSource = async () => {
+    if (!auth?.guild_id) return;
+    setIsLyricsLoading(true);
+    try {
+      const resp = await axios.post(`${API_BASE}/api/source/${auth.guild_id}`);
+      setLyrics(resp.data.lyrics);
+    } catch (err) { 
+      console.error("Source error:", err);
+      alert("No additional lyric sources found for this track.");
+    } finally {
+      setIsLyricsLoading(false);
+    }
   };
 
   const handleSearch = async (e) => {
@@ -192,12 +272,34 @@ function App() {
       <div className="scanline" />
       <div className="vignette" />
       
+      {currentTrack && (
+        <div className="adaptive-bg" style={{ 
+          backgroundImage: `url(${getProxyUrl(currentTrack.thumbnail)})`,
+          opacity: isPlaying ? 0.35 : 0.15
+        }} />
+      )}
       <header className="header glass">
         <div className="logo">
           <Zap size={22} color="#00f2ff" />
           <span className="logo-text">AH MUSIC <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>// v2.6-PRO</span></span>
         </div>
         
+        <div className="telemetry-panel hide-mobile">
+          {systemStats && (
+            <>
+              <div className="stat-item">
+                <span className="stat-label">RAM</span>
+                <span className="stat-value">{systemStats.mem.percent}%</span>
+                <div className="stat-bar-bg"><div className="stat-bar-fill" style={{ width: `${systemStats.mem.percent}%` }} /></div>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">LOAD</span>
+                <span className="stat-value">{systemStats.load}</span>
+              </div>
+            </>
+          )}
+        </div>
+
         <form onSubmit={handleSearch} className="search-bar-premium">
           <Search className="search-icon" size={18} />
           <input 
@@ -253,13 +355,7 @@ function App() {
                         </button>
                       </div>
 
-                      <div className="sync-controls">
-                        <button onClick={() => handleControl('sync_minus')} className="btn-sync" title="Lyrics -1s">
-                          <Rewind size={16} /> -1s
-                        </button>
-                        <button onClick={() => handleControl('sync_plus')} className="btn-sync" title="Lyrics +1s">
-                          <FastForward size={16} /> +1s
-                        </button>
+                      <div className="discovery-links">
                         <a href={`${API_BASE}/api/proxy?url=${encodeURIComponent(currentTrack.actualUrl)}`} target="_blank" className="btn-sync highlight" title="Source Link">
                            SOURCE <ExternalLink size={14} />
                         </a>
@@ -279,15 +375,66 @@ function App() {
           </section>
 
           <section className="lyrics-panel glass">
-            <div className="lyrics-header">
-                <BookOpen size={16} /> <span>DYN-LYRICS ENGINE</span>
+            <div className="lyrics-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <BookOpen size={16} /> <span>DYN-LYRICS ENGINE</span>
+                </div>
+                <div style={{ fontSize: '10px', opacity: 0.6, letterSpacing: '1px' }}>
+                  SYNC: {((currentTrack?.introOffsetMs || 0) + (lyricOffsetMs || 0))}ms 
+                  | {lyrics.length > 0 ? 'SOURCE: LINKED' : 'SEARCHING...'}
+                </div>
             </div>
-            <div className="lyrics-content" ref={lyRef => (lyricRef.current = lyRef)}>
+            
+            <div className="sync-controls-mini glass" style={{ 
+              display: 'flex', gap: '5px', padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+              justifyContent: 'center', alignItems: 'center'
+            }}>
+                <button title="-1s" onClick={() => handleSync(-1000)} className="btn-sync"><Rewind size={12} /></button>
+                <button title="-500ms" onClick={() => handleSync(-500)} className="btn-sync"><ChevronLeft size={14} /></button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '70px' }}>
+                    <span style={{ fontSize: '11px', color: '#00f2ff', fontWeight: 'bold' }}>{lyricOffsetMs}ms</span>
+                    <span style={{ fontSize: '8px', opacity: 0.5 }}>OFFSET</span>
+                </div>
+                <button title="+500ms" onClick={() => handleSync(500)} className="btn-sync"><ChevronRight size={14} /></button>
+                <button title="+1s" onClick={() => handleSync(1000)} className="btn-sync"><FastForward size={12} /></button>
+                <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '0 5px' }} />
+                <button onClick={handleSource} className="btn-sync highlight" style={{ padding: '0 10px', fontSize: '10px' }}>ROTATE SOURCE</button>
+            </div>
+
+              <div 
+                className="lyrics-content" 
+                ref={lyricRef} 
+                onWheel={handleManualScroll}
+                onTouchStart={handleManualScroll}
+                onScroll={handleManualScroll}
+                style={{ 
+                  height: '400px', 
+                  overflowY: 'auto', 
+                  padding: '20px',
+                  position: 'relative',
+                  scrollBehavior: 'smooth'
+                }}
+              >
+                {isAutoScrollPaused && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    fontSize: '10px',
+                    color: '#ff9800',
+                    zIndex: 10,
+                    background: 'rgba(0,0,0,0.5)',
+                    padding: '2px 6px',
+                    borderRadius: '4px'
+                  }}>
+                    AUTO-SCROLL PAUSED
+                  </div>
+                )}
               {isLyricsLoading ? (
                 <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="spinning" size={24} /></div>
               ) : lyrics.length > 0 ? (
                 lyrics.map((line, idx) => {
-                    const isActive = currentTime >= line.time && (!lyrics[idx + 1] || currentTime < lyrics[idx + 1].time);
+                    const isActive = idx === activeLyricIndex;
                     return (
                         <div 
                           key={idx} 
