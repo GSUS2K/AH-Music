@@ -16,14 +16,26 @@ module.exports = {
         await interaction.reply({ content: '🚀 **Update & Reset Sequence Initiated**\n- Pulling latest nebula-code...\n- Rebuilding neural-activity...\n- Refreshing process...', ephemeral: true });
         
         const pm2Name = process.env.PM2_APP_NAME || 'AH-Music';
-        const command = `git pull origin main && npm run build-activity && pm2 restart ${pm2Name}`;
         
-        exec(command, (err, stdout, stderr) => {
+        // Use a single exec to handle the sequence and report progress
+        const pullAndBuild = `git pull origin main && npm run build-activity`;
+        
+        exec(pullAndBuild, (err, stdout, stderr) => {
             if (err) {
-                console.error('[Restart] Failure:', err.message);
-                return interaction.followUp({ content: `❌ **Sequence Aborted**: ${err.message}`, ephemeral: true });
+                console.error('[Restart] Build Failure:', err.message);
+                return interaction.followUp({ content: `❌ **Sequence Aborted during Build**: ${err.message}`, ephemeral: true });
             }
-            console.log('[Restart] Success:', stdout);
+            
+            // Check if git actually pulled anything
+            const isUpToDate = stdout.includes('Already up to date');
+            const statusMsg = isUpToDate ? '✅ **Code is already up to date.**' : '✅ **Latest changes pulled and rebuilt.**';
+            
+            interaction.followUp({ content: `${statusMsg} Restarting process \`${pm2Name}\` now...`, ephemeral: true }).then(() => {
+                // Final step: Restart the PM2 process
+                exec(`pm2 restart ${pm2Name}`, (restErr) => {
+                    if (restErr) console.error('[Restart] PM2 Failure:', restErr.message);
+                });
+            });
         });
     }
 };
