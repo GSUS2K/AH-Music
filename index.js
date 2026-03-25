@@ -89,7 +89,11 @@ app.get('/tos', (req, res) => res.sendFile(path.join(distPath, 'tos.html')));
 app.get('/privacy', (req, res) => res.sendFile(path.join(distPath, 'privacy.html')));
 
 // Support /activity subpath and other SPA routes by serving index.html
-app.get(['/', '/activity', '/activity/*'], (req, res) => {
+app.get(['/', '/activity'], (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+});
+
+app.get('/activity/*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
