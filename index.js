@@ -14,7 +14,7 @@ const isWindows = process.platform === 'win32';
 process.env.PATH = `${path.dirname(ffmpegBinaryPath)}${isWindows ? ';' : ':'}${process.env.PATH}`;
 
 // Prefer the system-installed yt-dlp or the local @distube binary
-const systemYtdlp = '/usr/local/bin/yt-dlp';
+const systemYtdlp = process.env.SYSTEM_YTDLP_PATH || '/usr/local/bin/yt-dlp';
 const localYtdlp = path.join(__dirname, 'node_modules', '@distube', 'yt-dlp', 'bin', 'yt-dlp');
 
 if (fs.existsSync(systemYtdlp)) {

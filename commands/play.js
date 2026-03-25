@@ -38,9 +38,10 @@ module.exports = {
                     dumpSingleJson: true, noCheckCertificates: true, noWarnings: true
                 };
                 
-                if (fs.existsSync('./cookies.txt')) {
-                    options.cookies = './cookies.txt';
-                    console.log('[Play] Using cookies.txt for search');
+                const cookiesPath = process.env.YOUTUBE_COOKIES_PATH || './cookies.txt';
+                if (fs.existsSync(cookiesPath)) {
+                    options.cookies = cookiesPath;
+                    console.log('[Play] Using cookies for search:', cookiesPath);
                 }
                 options.extractorArgs = 'youtube:player_client=android_vr';
 
@@ -153,8 +154,9 @@ module.exports = {
                     playlistItems: '2', extractAudio: true
                 };
 
-                if (fs.existsSync('./cookies.txt')) {
-                    options.cookies = './cookies.txt';
+                const cookiesPath = process.env.YOUTUBE_COOKIES_PATH || './cookies.txt';
+                if (fs.existsSync(cookiesPath)) {
+                    options.cookies = cookiesPath;
                 }
 
                 const info = await youtubedl(mixUrl, options).catch(() => null);
@@ -239,8 +241,9 @@ module.exports = {
                     noCheckCertificates: true
                 };
 
-                if (fs.existsSync('./cookies.txt')) {
-                    options.cookies = './cookies.txt';
+                const cookiesPath = process.env.YOUTUBE_COOKIES_PATH || './cookies.txt';
+                if (fs.existsSync(cookiesPath)) {
+                    options.cookies = cookiesPath;
                 }
 
                 const m3u8Url = await youtubedl(track.actualUrl, options).catch(() => null);
@@ -296,7 +299,8 @@ module.exports = {
                                 console.error('[HLS] Playlist error:', e.message);
                             }
                             // Dynamic wait: if we found new segments, wait less. otherwise wait 2s.
-                            await new Promise(r => setTimeout(r, 2000));
+                            const pollInterval = parseInt(process.env.HLS_POLL_INTERVAL_MS) || 2000;
+                            await new Promise(r => setTimeout(r, pollInterval));
                         }
                     };
 
@@ -323,9 +327,9 @@ module.exports = {
                     '--no-warnings',
                     '--quiet',
                     '--force-ipv4',
-                    '--cookies', '/home/gsus/ah-music-bot/cookies.txt',
+                    '--cookies', process.env.YOUTUBE_COOKIES_PATH || './cookies.txt',
                     '--extractor-args', 'youtube:player_client=android_vr',
-                    '--js-runtimes', 'node:/usr/local/bin/node'
+                    '--js-runtimes', `node:${process.env.NODE_PATH || '/usr/local/bin/node'}`
                 ]);
 
                 queue.currentProcess = proc; // Store process for future cleanup
@@ -349,9 +353,12 @@ module.exports = {
             new ButtonBuilder().setCustomId('stop').setLabel('Stop & Clear').setStyle(ButtonStyle.Danger)
         );
         
+        const syncStepMs = parseInt(process.env.LYRIC_SYNC_STEP_MS) || 1000;
+        const syncStepSec = (syncStepMs / 1000).toFixed(1);
+        
         const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('sync_minus').setLabel('Sync -1.0s').setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('sync_plus').setLabel('Sync +1.0s').setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder().setCustomId('sync_minus').setLabel(`Sync -${syncStepSec}s`).setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('sync_plus').setLabel(`Sync +${syncStepSec}s`).setStyle(ButtonStyle.Secondary)
         );
 
         if (!isLive) {

@@ -23,7 +23,8 @@ export async function setupDiscordSdk() {
       scope: [
         "identify",
         "guilds",
-        "rpc.activities.read"
+        "rpc.activities.read",
+        "rpc.activities.write"
       ],
     });
 

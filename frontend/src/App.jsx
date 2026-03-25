@@ -9,6 +9,7 @@ const API_BASE = window.location.origin;
 
 function App() {
   const [auth, setAuth] = useState(null);
+  const discordSdkRef = useRef(null);
   const [queue, setQueue] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [voiceChannel, setVoiceChannel] = useState('Unknown');
@@ -45,6 +46,7 @@ function App() {
       try {
         console.log("Starting SDK Init...");
         const sdk = await setupDiscordSdk();
+        discordSdkRef.current = sdk;
         
         if (sdk) {
           console.log("SDK Ready. Guild:", sdk.guildId);
@@ -196,6 +198,59 @@ function App() {
     }
   }, [currentTrack?.title]);
 
+  // Synchronize Discord Activity Status
+  useEffect(() => {
+    const updateStatus = async () => {
+      if (!discordSdkRef.current || !auth?.user || auth.user.id === 'GuestUser' || auth.user.id === 'Guest') {
+        return;
+      }
+
+      try {
+        if (currentTrack && isPlaying) {
+          const start = Date.now() - (currentTime || 0);
+          const end = start + (currentTrack.duration || currentTrack.totalDurationMs || 0);
+
+          await discordSdkRef.current.commands.setActivity({
+            activity: {
+              type: 0, // Using 0 (Playing) to ensure better compatibility across Discord clients
+              details: currentTrack.title.substring(0, 127),
+              state: `by ${currentTrack.author}`.substring(0, 127),
+              assets: {
+                large_image: currentTrack.thumbnail,
+                large_text: currentTrack.title.substring(0, 127),
+              },
+              timestamps: {
+                start,
+                end,
+              },
+              // Join secret enables the "Join Activity" button for others
+              secrets: {
+                join: auth.guild_id || 'guest',
+              },
+              instance: true,
+            },
+          });
+          console.log('[Activity] Status synced to Profile');
+        } else {
+          // Clear activity or set to idling
+          await discordSdkRef.current.commands.setActivity({
+            activity: {
+              type: 0,
+              details: "Browsing the network",
+              state: "Idling",
+              instance: true,
+            }
+          });
+          console.log('[Activity] Status cleared/idled');
+        }
+      } catch (err) {
+        console.warn('[Activity] Status Sync failed:', err.message);
+      }
+    };
+
+    updateStatus();
+  }, [currentTrack, isPlaying, auth?.user?.id]);
+
   const handleControl = async (action) => {
     if (!auth?.guild_id) return;
     try {
@@ -281,7 +336,7 @@ function App() {
       <header className="header glass">
         <div className="logo">
           <Zap size={22} color="#00f2ff" />
-          <span className="logo-text">AH MUSIC <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>// v2.6-PRO</span></span>
+          <span className="logo-text">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>// v2.6-PRO</span></span>
         </div>
         
         <div className="telemetry-panel hide-mobile">
