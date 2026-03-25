@@ -61,6 +61,12 @@ console.log('[Startup] Mapping static assets to:', distPath);
 app.use('/activity', express.static(distPath));
 app.use(express.static(distPath));
 
+// Debug: Log all API requests to see if frontend is talking to backend
+app.use('/api', (req, res, next) => {
+    console.log(`[API Request] ${req.method} ${req.url}`);
+    next();
+});
+
 // Auth and Proxy Endpoints (must be above catch-all)
 app.post('/api/token', async (req, res) => {
     const { code } = req.body;
