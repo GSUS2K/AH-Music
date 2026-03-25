@@ -117,7 +117,7 @@ apiRouter.get('/search', async (req, res) => {
     try {
         const youtubedl = require('youtube-dl-exec');
         const urlQuery = query.startsWith('http') ? query : `ytsearch5:${query}`;
-        const options = { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, flatPlaylist: true };
+        const options = { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, flatPlaylist: true, noCacheDir: true };
         
         const cookiesPath = process.env.YOUTUBE_COOKIES_PATH || './cookies.txt';
         if (require('fs').existsSync(cookiesPath)) {
