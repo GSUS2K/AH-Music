@@ -117,14 +117,26 @@ apiRouter.get('/search', async (req, res) => {
     try {
         const youtubedl = require('youtube-dl-exec');
         const urlQuery = query.startsWith('http') ? query : `ytsearch5:${query}`;
-        const info = await youtubedl(urlQuery, { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, flatPlaylist: true });
+        const options = { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, flatPlaylist: true };
+        
+        const cookiesPath = process.env.YOUTUBE_COOKIES_PATH || './cookies.txt';
+        if (require('fs').existsSync(cookiesPath)) {
+            options.cookies = cookiesPath;
+            console.log('[API Search] Using cookies:', cookiesPath);
+        }
+
+        const info = await youtubedl(urlQuery, options);
         const results = (info.entries || [info]).map(entry => ({
             id: entry.id, title: entry.title, thumbnail: entry.thumbnail,
             author: entry.uploader || entry.channel || 'Unknown',
             url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
         })).filter(r => r.id);
         res.json(results);
-    } catch (err) { res.status(500).json({ error: 'Search failed' }); }
+    } catch (err) {
+        console.error('[API Search] CRITICAL FAILURE:', err.message);
+        if (err.stderr) console.error('[API Search] Stderr Detail:', err.stderr);
+        res.status(500).json({ error: 'Search failed' });
+    }
 });
 
 apiRouter.post('/add/:guildId', async (req, res) => {
