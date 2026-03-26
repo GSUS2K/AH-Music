@@ -25,9 +25,11 @@
       window.onunhandledrejection = function(event) {
         console.error("Unhandled Rejection:", event.reason);
         var div = document.createElement('div');
-        div.style.cssText = 'position:fixed;bottom:0;left:0;width:100%;background:#ffaa00;color:#000;padding:10px;z-index:99998;font-family:monospace;';
-        div.innerText = 'PROMISE REJECTION: ' + event.reason;
+        div.style.cssText = 'position:fixed;bottom:20px;left:20px;background:#ffaa00;color:#000;padding:12px 20px;z-index:99998;font-family:monospace;border-radius:8px;font-weight:bold;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,0.5);border-left:4px solid #000;';
+        div.innerText = '⚠️ NEURAL LINK ALERT: ' + event.reason + ' (Click to dismiss)';
+        div.onclick = function() { div.remove(); };
         document.body.appendChild(div);
+        setTimeout(function() { if(div.parentNode) div.remove(); }, 8000);
       };
       console.log("Diagnostic Link Established");
     </script>
