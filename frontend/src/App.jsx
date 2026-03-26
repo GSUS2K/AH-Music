@@ -17,6 +17,14 @@ const remoteLog = (msg, err = '') => {
   axios.post(`${API_BASE}/api/log`, { message: msg, error: err }).catch(() => {});
 };
 
+const formatTime = (ms) => {
+  if (isNaN(ms) || ms < 0) return "0:00";
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
 function App() {
   const [auth, setAuth] = useState(null);
   const discordSdkRef = useRef(null);
@@ -157,7 +165,7 @@ function App() {
       return;
     }
     const offsetMs = (currentTrack?.introOffsetMs || 0) + (lyricOffsetMs || 0);
-    const effectiveTime = currentTime - offsetMs;
+    const effectiveTime = currentTime - offsetMs; // REVERTED: Subtract offset to delay lyrics
     
     const idx = lyrics.findLastIndex(l => l.time <= effectiveTime);
     if (idx !== -1 && idx !== activeLyricIndex) {
@@ -185,9 +193,13 @@ function App() {
   const fetchLyrics = async (trackTitle, trackAuthor, trackDuration, trackUrl) => {
     if (!trackTitle) return;
     setIsLyricsLoading(true);
+    console.log(`[Lyrics] Fetching for: ${trackTitle} by ${trackAuthor}`);
+    remoteLog(`[Lyrics] Fetching for: ${trackTitle} by ${trackAuthor}`);
     try {
       const resp = await fetch(`${API_BASE}/api/lyrics?track=${encodeURIComponent(trackTitle)}&artist=${encodeURIComponent(trackAuthor || '')}&duration=${(trackDuration || 0)/1000}&url=${encodeURIComponent(trackUrl || '')}&format=json`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
+      console.log(`[Lyrics] Received ${Array.isArray(data) ? data.length : 'error'} lines`);
       setLyrics(Array.isArray(data) ? data : []);
       
       // Only reset clock if the track title changed
@@ -197,6 +209,7 @@ function App() {
       }
     } catch (err) {
       console.error("Lyrics fetch failed:", err);
+      remoteLog("Lyrics fetch failed", err.message);
       setLyrics([]);
     } finally {
       setIsLyricsLoading(false);
@@ -213,7 +226,7 @@ function App() {
     if (currentTrack?.syncedLyrics) {
         setLyrics(currentTrack.syncedLyrics.lyrics || []);
     } else if (currentTrack?.title) {
-        fetchLyrics(currentTrack.title, currentTrack.author, currentTrack.duration, currentTrack.actualUrl);
+        fetchLyrics(currentTrack.title, currentTrack.author, currentTrack.totalDurationMs || currentTrack.duration, currentTrack.actualUrl);
     } else {
         setLyrics([]);
     }
@@ -306,9 +319,16 @@ function App() {
     try {
       const resp = await axios.post(`${API_BASE}/api/source/${guildId}`);
       setLyrics(resp.data.lyrics);
+      setLastAdded("Lyrics source rotated!");
+      setTimeout(() => setLastAdded(null), 3000);
     } catch (err) { 
       console.error("Source error:", err);
-      alert("No additional lyric sources found for this track.");
+      // Fallback: Try a fresh fetch directly from frontend if backend rotation fails
+      if (currentTrack) {
+        fetchLyrics(currentTrack.title, currentTrack.author, currentTrack.duration, currentTrack.actualUrl);
+      }
+      setLastAdded("No alternative sources found.");
+      setTimeout(() => setLastAdded(null), 3000);
     } finally {
       setIsLyricsLoading(false);
     }
@@ -415,7 +435,6 @@ function App() {
       </header>
 
       <main className="main-content">
-        
         <div className="hero-section">
           <section className="player-panel">
             <AnimatePresence mode="wait">
@@ -450,6 +469,30 @@ function App() {
                       <h1 className="track-title-hero">{currentTrack.title}</h1>
                       <p className="track-author-hero">by {currentTrack.author}</p>
                       
+                      <div className="progress-container">
+                        <input 
+                            type="range"
+                            className="progress-slider"
+                            min="0"
+                            max={currentTrack.totalDurationMs || currentTrack.duration || 100}
+                            value={currentTime}
+                            onChange={async (e) => {
+                                const val = parseFloat(e.target.value);
+                                setCurrentTime(val);
+                                const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
+                                if (guildId && guildId !== '0') {
+                                    try {
+                                        await axios.post(`${API_BASE}/api/seek/${guildId}`, { positionMs: val });
+                                    } catch (err) { console.error("Seek error:", err); }
+                                }
+                            }}
+                        />
+                        <div className="time-display">
+                            <div className="time-node elapsed">{formatTime(currentTime)}</div>
+                            <div className="time-node total">{formatTime(currentTrack.totalDurationMs || currentTrack.duration || 0)}</div>
+                        </div>
+                      </div>
+
                       <div className="player-controls">
                         <button onClick={() => handleControl(isPlaying ? 'pause' : 'resume')} className="btn-circle primary" title={isPlaying ? 'Pause' : 'Play'}>
                           {isPlaying ? <Pause size={32} /> : <Play size={32} />}
@@ -463,20 +506,45 @@ function App() {
                       </div>
 
                       <div className="discovery-links">
-                        <a href={currentTrack.actualUrl} target="_blank" rel="noopener noreferrer" className="btn-sync highlight" title="Source Link">
+                        <button 
+                          onClick={() => {
+                            console.log("Source Button Clicked:", currentTrack?.actualUrl);
+                            remoteLog("Source Button Clicked: " + currentTrack?.actualUrl);
+                            if (discordSdkRef.current && currentTrack?.actualUrl) {
+                              discordSdkRef.current.commands.openExternalLink({ url: currentTrack.actualUrl })
+                                .then(() => console.log("External link opened successfully"))
+                                .catch(err => {
+                                  console.error("SDK openExternalLink failed:", err);
+                                  remoteLog("SDK openExternalLink failed", err.message);
+                                  window.open(currentTrack.actualUrl, '_blank');
+                                });
+                            } else if (currentTrack?.actualUrl) {
+                              console.warn("SDK not ready, falling back to window.open");
+                              window.open(currentTrack.actualUrl, '_blank');
+                            }
+                          }} 
+                          className="btn-sync highlight" 
+                          style={{ cursor: 'pointer', border: '1px solid rgba(0, 242, 255, 0.3)' }}
+                          title="Open Source in Browser"
+                        >
                            SOURCE <ExternalLink size={14} />
-                        </a>
+                        </button>
                       </div>
                     </div>
                   </div>
                 </motion.div>
               ) : (
-                <div className="player-card glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="player-card glass" 
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '500px' }}
+                >
                   <div style={{ textAlign: 'center', opacity: 0.5 }}>
-                    <Music size={48} />
-                    <h2 style={{ marginTop: '16px' }}>WAITING FOR LINK...</h2>
+                    <Music size={64} className="spinning" style={{ animationDuration: '4s' }} />
+                    <h2 style={{ marginTop: '24px', letterSpacing: '8px' }}>NEURAL LINK READY</h2>
                   </div>
-                </div>
+                </motion.div>
               )}
             </AnimatePresence>
           </section>
@@ -514,42 +582,48 @@ function App() {
                 onWheel={handleManualScroll}
                 onTouchStart={handleManualScroll}
                 onScroll={handleManualScroll}
-                style={{ 
-                  height: '400px', 
-                  overflowY: 'auto', 
-                  padding: '20px',
-                  position: 'relative',
-                  scrollBehavior: 'smooth'
-                }}
+                style={{ scrollBehavior: 'smooth' }}
               >
                 {isAutoScrollPaused && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    fontSize: '10px',
-                    color: '#ff9800',
-                    zIndex: 10,
-                    background: 'rgba(0,0,0,0.5)',
-                    padding: '2px 6px',
-                    borderRadius: '4px'
-                  }}>
-                    AUTO-SCROLL PAUSED
-                  </div>
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      position: 'sticky',
+                      top: '0',
+                      left: '0',
+                      right: '0',
+                      textAlign: 'center',
+                      fontSize: '11px',
+                      color: '#00f2ff',
+                      zIndex: 20,
+                      background: 'rgba(0,0,0,0.8)',
+                      padding: '8px',
+                      backdropFilter: 'blur(10px)',
+                      borderRadius: '0 0 20px 20px',
+                      marginBottom: '20px',
+                      border: '1px solid rgba(0,242,255,0.2)'
+                    }}
+                  >
+                    SYNC PAUSED - CLICK TO RESUME
+                  </motion.div>
                 )}
               {isLyricsLoading ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="spinning" size={24} /></div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <Loader2 className="spinning" size={32} color="#00f2ff" />
+                </div>
               ) : lyrics.length > 0 ? (
                 lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIndex;
                     return (
-                        <div 
+                        <motion.div 
+                          layout
                           key={idx} 
                           ref={isActive ? activeLyricRef : null}
                           className={`lyric-line ${isActive ? 'active' : ''}`}
                         >
                             {line.text}
-                        </div>
+                        </motion.div>
                     );
                 })
               ) : (
@@ -561,21 +635,22 @@ function App() {
           </section>
         </div>
 
-        {queue.length > 1 && (
-          <section className="queue-section">
-             <div className="section-label"><ListMusic size={14} /> UP NEXT ({queue.length - 1})</div>
-             <div className="results-grid" style={{ marginTop: '20px' }}>
-                {queue.slice(1).map((track, idx) => (
+        <section className="queue-section">
+           <div className="section-label"><ListMusic size={14} /> UP NEXT ({Math.max(0, queue.length - 1)})</div>
+           <div className="results-grid" style={{ marginTop: '20px' }}>
+              <AnimatePresence>
+                {queue.length > 1 ? queue.slice(1).map((track, idx) => (
                   <motion.div 
                     layout
-                    initial={{ opacity: 0, scale: 0.95 }}
+                    initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9, x: 50 }}
                     key={`${track.id}-${idx}`}
                     className="track-card-mini"
                   >
                     <img src={getProxyUrl(track.thumbnail)} alt="" className="mini-artwork" />
                     <div className="mini-info">
-                      <div className="mini-title text-accent">{track.title}</div>
+                      <div className="mini-title" style={{ color: 'var(--accent-primary)' }}>{track.title}</div>
                       <div className="mini-author">by {track.author}</div>
                     </div>
                     <button 
@@ -587,10 +662,18 @@ function App() {
                       <Trash2 size={16} />
                     </button>
                   </motion.div>
-                ))}
-             </div>
-          </section>
-        )}
+                )) : (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    style={{ padding: '40px', textAlign: 'center', opacity: 0.3, gridColumn: '1/-1', fontSize: '14px', letterSpacing: '2px' }}
+                  >
+                    QUEUE EMPTY // STANDBY FOR INPUT
+                  </motion.div>
+                )}
+              </AnimatePresence>
+           </div>
+        </section>
 
         <section className="discovery-section">
           <div className="section-label"><Globe size={14} /> GLOBAL DISCOVERY</div>
