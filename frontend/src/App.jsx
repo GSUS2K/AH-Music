@@ -173,15 +173,20 @@ function App() {
     try {
       await discordSdkRef.current.commands.setActivity({
         activity: {
+          name: "AH Music",
           type: 2, // Listening to
-          details: track.title,
-          state: `by ${track.author}`,
+          details: track.title.slice(0, 127),
+          state: `by ${track.author}`.slice(0, 127),
           assets: {
             large_image: track.thumbnail || "https://cdn.discordapp.com/embed/avatars/0.png",
-            large_text: import.meta.env.VITE_APP_NAME || "AH Music"
+            large_text: `V${systemStats?.version || '5.3.1'} // Q: ${queue.length}`
           },
           timestamps: {
             start: Date.now() - playbackMs
+          },
+          party: {
+             id: discordSdkRef.current.instanceId,
+             size: [1, 10] // Show activity as active
           }
         }
       });
@@ -315,7 +320,9 @@ function App() {
   );
 
   return (
-    <div className="h-screen w-screen bg-mesh bg-fixed selection:bg-brand-accent selection:text-brand-dark flex flex-col overflow-hidden relative">
+    <div className="h-screen w-screen bg-[#050505] selection:bg-brand-accent selection:text-brand-dark flex flex-col overflow-hidden relative isolate">
+      {/* Background Mesh (Absolute to avoid flex interference) */}
+      <div className="absolute inset-0 bg-mesh pointer-events-none z-[-1]" />
 
       {/* Background Glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -444,7 +451,7 @@ function App() {
 
       </header>
 
-      <main className="flex-1 mt-24 md:mt-16 overflow-hidden px-4 md:px-6 py-4 md:grid md:grid-cols-12 gap-6 relative z-10 w-full mb-4 compact-mt mini-mt no-scrollbar overflow-y-auto">
+      <main className="flex-1 mt-16 overflow-hidden px-4 md:px-6 py-4 md:grid md:grid-cols-12 gap-6 relative z-10 w-full mb-4 compact-mt mini-mt no-scrollbar overflow-y-auto">
         
         {/* PLAYER & LYRICS */}
         <div className="flex flex-col gap-6 md:col-span-8 md:max-h-[calc(100vh-6rem)] md:overflow-hidden min-w-0">
