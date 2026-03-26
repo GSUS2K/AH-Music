@@ -97,18 +97,15 @@ function App() {
       setLyricOffsetMs(resp.data.lyricOffsetMs || 0);
       setQueue(resp.data.songs || []);
       
-      const serverMs = resp.data.currentMs || 0;
-      if (Math.abs(currentTime - serverMs) > 1000 || currentTime === 0) setCurrentTime(serverMs);
-
       const track = resp.data.songs && resp.data.songs[0];
       if (track && track.title !== currentTrackTitle) {
         setCurrentTrackTitle(track.title);
-        updateDiscordRichPresence(track);
+        updateDiscordRichPresence(track, serverMs);
       }
     } catch (err) {}
   };
 
-  const updateDiscordRichPresence = async (track) => {
+  const updateDiscordRichPresence = async (track, playbackMs = 0) => {
     if (!discordSdkRef.current || !track) return;
     try {
       await discordSdkRef.current.commands.setActivity({
@@ -121,7 +118,7 @@ function App() {
             large_text: track.title
           },
           timestamps: {
-            start: Date.now()
+            start: Date.now() - playbackMs
           }
         }
       });
@@ -273,7 +270,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.0.6'} // SYNC_STATUS</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.0.7'} // SYNC_TIMER</span>
              </div>
           </div>
           
