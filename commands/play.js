@@ -398,7 +398,7 @@ module.exports = {
         }
 
 
-        const durationStr = track.totalDurationMs === 0 ? 'LIVE' : `${Math.floor(track.totalDurationMs / 60000)}:${Math.floor((track.totalDurationMs % 60000) / 1000).toString().padStart(2, '0')}`;
+
         
         // Fetch lyrics early (don't block audio playback)
         if (track.totalDurationMs > 0) {
