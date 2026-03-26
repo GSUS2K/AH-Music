@@ -243,7 +243,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.6 // SYNC_STABLE</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.9 // SYNC_CLARITY</span>
              </div>
           </div>
           
@@ -437,9 +437,9 @@ function App() {
                       <div 
                         key={idx} 
                         ref={isActive ? activeLyricRef : null} 
-                        className={`text-xl sm:text-2xl lg:text-3xl font-black transition-all duration-700 transform leading-tight py-2 ${
+                        className={`text-base sm:text-lg lg:text-xl font-bold transition-all duration-700 transform leading-snug py-1.5 ${
                           isActive 
-                            ? 'text-brand-accent scale-105 opacity-100 drop-shadow-[0_0_15px_rgba(0,255,191,0.5)] translate-x-2' 
+                            ? 'text-brand-accent scale-105 opacity-100 drop-shadow-[0_0_15px_rgba(0,255,191,0.5)] translate-x-1' 
                             : 'text-white/50 opacity-80 hover:opacity-100 transition-opacity cursor-default'
                         }`}
                       >

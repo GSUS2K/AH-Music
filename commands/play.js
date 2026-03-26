@@ -631,7 +631,13 @@ function parseVTT(vtt) {
                 j++;
             }
             if (text) {
-                const cleanText = (text || "").replace(/<[^>]*>/g, '').replace(/^- |^\[|\]$/g, '').trim();
+                const cleanText = (text || "")
+                    .replace(/<[^>]*>/g, '') // Remove HTML
+                    .replace(/\[[^\]]*\]/g, '') // Remove [Music], [Applause]
+                    .replace(/\([^\)]*\)/g, '') // Remove (Laughter)
+                    .replace(/♪/g, '') // Remove music notes
+                    .replace(/^- /g, '') // Remove leading dashes
+                    .trim();
                 if (cleanText) lyrics.push({ time: timeMs, text: cleanText });
             }
             i = j - 1;
