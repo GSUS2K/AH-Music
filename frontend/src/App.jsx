@@ -266,11 +266,21 @@ function App() {
   }, [currentTrack, isPlaying, auth?.user?.id]);
 
   const handleControl = async (action) => {
-    if (!auth?.guild_id) return;
+    const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
+    if (!guildId || guildId === '0') return;
     try {
-      await axios.post(`${API_BASE}/api/control/${auth.guild_id}`, { action });
-      fetchQueue(auth.guild_id);
+      await axios.post(`${API_BASE}/api/control/${guildId}`, { action });
+      fetchQueue(guildId);
     } catch (err) { console.error("Control error:", err); }
+  };
+
+  const handleRemove = async (index) => {
+    const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
+    if (!guildId || guildId === '0') return;
+    try {
+      await axios.post(`${API_BASE}/api/remove/${guildId}/${index}`);
+      fetchQueue(guildId);
+    } catch (err) { console.error("Remove error:", err); }
   };
 
   const handleSync = async (offset) => {
@@ -541,6 +551,37 @@ function App() {
             </div>
           </section>
         </div>
+
+        {queue.length > 1 && (
+          <section className="queue-section">
+             <div className="section-label"><ListMusic size={14} /> UP NEXT ({queue.length - 1})</div>
+             <div className="results-grid" style={{ marginTop: '20px' }}>
+                {queue.slice(1).map((track, idx) => (
+                  <motion.div 
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    key={`${track.id}-${idx}`}
+                    className="track-card-mini"
+                  >
+                    <img src={getProxyUrl(track.thumbnail)} alt="" className="mini-artwork" />
+                    <div className="mini-info">
+                      <div className="mini-title text-accent">{track.title}</div>
+                      <div className="mini-author">by {track.author}</div>
+                    </div>
+                    <button 
+                      onClick={() => handleRemove(idx + 1)} 
+                      className="btn-add-mini"
+                      style={{ color: '#ff4b4b', borderColor: 'rgba(255,75,75,0.2)' }}
+                      title="Remove from Queue"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </motion.div>
+                ))}
+             </div>
+          </section>
+        )}
 
         <section className="discovery-section">
           <div className="section-label"><Globe size={14} /> GLOBAL DISCOVERY</div>

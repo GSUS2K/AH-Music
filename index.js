@@ -137,7 +137,7 @@ apiRouter.get('/search', async (req, res) => {
         const youtubedl = require('youtube-dl-exec');
         const urlQuery = query.startsWith('http') ? query : `ytsearch5:${query}`;
         const options = { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true, flatPlaylist: true, noCacheDir: true };
-        
+
         const cookiesPath = process.env.YOUTUBE_COOKIES_PATH || './cookies.txt';
         if (require('fs').existsSync(cookiesPath)) {
             options.cookies = cookiesPath;
@@ -224,6 +224,18 @@ apiRouter.post('/source/:guildId', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+apiRouter.post('/remove/:guildId/:index', async (req, res) => {
+    const guildId = req.params.guildId;
+    const index = parseInt(req.params.index);
+    const queue = client.queues.get(guildId);
+    if (!queue || !queue.songs) return res.status(404).json({ error: 'No active queue' });
+    if (index < 0 || index >= queue.songs.length) return res.status(400).json({ error: 'Invalid index' });
+    
+    const removed = queue.songs.splice(index, 1);
+    console.log(`[API Remove] Removed track: "${removed[0].title}" at index ${index} in Guild: ${guildId}`);
+    res.json({ success: true, removed: removed[0].title });
+});
+
 apiRouter.post('/control/:guildId', async (req, res) => {
     const { action } = req.body;
     const guildId = req.params.guildId;
@@ -265,7 +277,7 @@ apiRouter.get('/proxy', async (req, res) => {
     try {
         // Ensure URL is decoded properly
         const targetUrl = decodeURIComponent(url);
-        const response = await axios.get(targetUrl, { 
+        const response = await axios.get(targetUrl, {
             responseType: 'arraybuffer',
             timeout: 5000,
             headers: {
@@ -277,9 +289,9 @@ apiRouter.get('/proxy', async (req, res) => {
         res.set('Content-Type', contentType);
         res.set('Cache-Control', 'public, max-age=86400');
         res.send(response.data);
-    } catch (err) { 
+    } catch (err) {
         console.error(`[Proxy Error] Failed to proxy: ${url} -> ${err.message}`);
-        res.status(500).send('Proxy failed'); 
+        res.status(500).send('Proxy failed');
     }
 });
 
@@ -354,7 +366,7 @@ client.once('ready', async () => {
             const context = JSON.parse(fs.readFileSync(restartFile, 'utf8'));
             const channel = await client.channels.fetch(context.channelId).catch(() => null);
             if (channel) {
-                const message = context.updated 
+                const message = context.updated
                     ? '🚀 **Bot Updated!** New changes pulled and bot restarted.'
                     : '✅ **Bot Restarted.** Already up-to-date with GitHub.';
                 await channel.send(message).catch(() => null);
