@@ -300,7 +300,7 @@ function App() {
          <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-brand-accent/10 blur-[80px] rounded-full animate-pulse-glow" style={{ animationDelay: '2s' }} />
       </div>
 
-      <header className="fixed top-0 left-0 right-0 h-auto lg:h-16 border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-3xl z-50 px-4 flex flex-col lg:flex-row items-center justify-between py-3 lg:py-0 gap-3 lg:gap-0">
+      <header className="fixed top-0 left-0 right-0 h-auto lg:h-16 border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-3xl z-50 px-4 flex flex-col lg:flex-row items-center justify-between py-3 lg:py-0 gap-3 lg:gap-0 compact-header">
         {/* TOP ROW: CORE + MINI USER (Horizontal on ALL devices) */}
         <div className="w-full flex items-center justify-between lg:w-auto lg:gap-6 lg:min-w-[240px]">
           {/* NEURAL CORE */}
@@ -311,13 +311,13 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.9'} // PRESENCE_OPTIMIZED</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.2.0'} // ULTRA_COMPACT</span>
              </div>
           </div>
           
           {/* MOBILE USER NODE (Only visible in top row on mobile) */}
           <div className="lg:hidden flex items-center gap-3">
-             <div className="flex flex-col items-end leading-none">
+             <div className="flex flex-col items-end leading-none ultra-compact-hide">
                 <span className="text-[10px] font-black uppercase text-white tracking-widest">{auth?.user?.username || 'GUEST'}</span>
                 <span className="text-[8px] font-mono uppercase text-brand-accent font-bold">{voiceChannel}</span>
              </div>
@@ -369,7 +369,7 @@ function App() {
         </div>
 
         {/* SEARCH ROW: Dedicated full-width row on mobile */}
-        <div className="w-full lg:flex-1 flex justify-center lg:max-w-[600px] lg:px-8 order-3 lg:order-2">
+        <div className="w-full lg:flex-1 flex justify-center lg:max-w-[600px] lg:px-8 order-3 lg:order-2 ultra-compact-hide">
           <form onSubmit={handleSearch} className="relative w-full group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-text-dim group-focus-within:text-brand-accent z-10 transition-colors" size={18} />
             <input 
@@ -385,7 +385,7 @@ function App() {
 
         {/* DESKTOP USER BIO (Hidden on mobile row) */}
         <div className="hidden lg:flex items-center justify-end gap-6 min-w-[240px] order-2 lg:order-3">
-          <div className="flex items-center leading-none gap-4 pr-6 border-r border-white/5 h-8 justify-center">
+          <div className="flex items-center leading-none gap-4 pr-6 border-r border-white/5 h-8 justify-center ultra-compact-hide">
              <div className="flex flex-row items-center gap-4">
                 <div className="flex items-center gap-1.5 order-2">
                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
@@ -414,7 +414,7 @@ function App() {
 
 
 
-      <main className="flex-1 mt-24 lg:mt-16 overflow-hidden px-4 lg:px-6 py-4 lg:grid lg:grid-cols-12 gap-6 relative z-10 w-full mb-4">
+      <main className="flex-1 mt-24 lg:mt-16 overflow-hidden px-4 lg:px-6 py-4 lg:grid lg:grid-cols-12 gap-6 relative z-10 w-full mb-4 compact-mt no-scrollbar overflow-y-auto">
         
         {/* PLAYER & LYRICS */}
         <div className="flex flex-col gap-6 lg:col-span-8 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden min-w-0">
