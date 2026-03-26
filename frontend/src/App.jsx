@@ -331,7 +331,7 @@ function App() {
   );
 
   return (
-    <div className="h-screen w-screen bg-[#050505] selection:bg-brand-accent selection:text-brand-dark flex flex-col overflow-hidden relative isolate">
+    <div className="fixed inset-0 bg-[#050505] selection:bg-brand-accent selection:text-brand-dark flex flex-col overflow-hidden relative isolate">
       {/* Background Mesh (Absolute to avoid flex interference) */}
       <div className="absolute inset-0 bg-mesh pointer-events-none z-[-1]" />
 
@@ -391,7 +391,7 @@ function App() {
                   className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 hover:bg-brand-accent/20 transition-all mini-hide group"
                 >
                   <UserPlus size={12} className="text-brand-accent group-hover:scale-110 transition-transform" />
-                  <span className="text-[9px] font-black uppercase tracking-widest text-brand-accent">Invite</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-brand-accent">Link</span>
                 </button>
 
                 <AnimatePresence>
