@@ -41,7 +41,10 @@ module.exports = {
             if (localHead === remoteHead) {
                 interaction.followUp({ content: '✅ **Code already up-to-date.** Rebuilding neural-activity for consistency...', ephemeral: true });
                 return exec('npm run build-activity', (buildErr) => {
-                    exec(`pm2 restart ${pm2Name}`);
+                    fs.writeFileSync('./.restart_context.json', JSON.stringify({ channelId: interaction.channelId, updated: false, timestamp: Date.now() }));
+                    interaction.followUp({ content: '✅ **Build complete. Rebooting system...**', ephemeral: true }).then(() => {
+                        exec(`pm2 restart ${pm2Name}`);
+                    });
                 });
             }
 
