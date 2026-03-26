@@ -383,10 +383,19 @@ client.once('ready', async () => {
     }
 
     console.log('Registering global slash commands...');
-    const commandsData = client.commands.map(c => c.data);
+    const commandsData = client.commands.map(c => c.data.toJSON ? c.data.toJSON() : c.data);
     try {
+        // 1. Register Global (Takes up to 1 hour to propagate)
         await client.application.commands.set(commandsData);
         console.log('Successfully registered global slash commands!');
+
+        // 2. Register to all current guilds (Instant updates)
+        const guilds = await client.guilds.fetch();
+        for (const [id, guild] of guilds) {
+            const fullGuild = await guild.fetch();
+            await fullGuild.commands.set(commandsData).catch(() => {});
+        }
+        console.log(`Successfully registered commands to ${guilds.size} guilds for instant indexing.`);
     } catch (error) {
         console.error('Error during command registration:', error);
     }
