@@ -282,16 +282,7 @@ function App() {
           </div>
         </div>
 
-        {/* MOBILE USER MINI (Only for the top row in mobile) */}
-        <div className="lg:hidden flex items-center gap-3">
-           <div className="flex flex-col items-end leading-none">
-              <span className="text-[10px] font-black uppercase text-white">{auth?.user?.username || 'GUEST'}</span>
-              <span className="text-[8px] font-mono uppercase text-brand-accent">{voiceChannel}</span>
-           </div>
-           <div className="w-8 h-8 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden">
-             <User size={16} className="text-brand-accent" />
-           </div>
-        </div>
+        {/* Redundant mobile node removed */}
       </header>
 
       {/* Floating Telemetry Hub (The "Neural Link") */}
