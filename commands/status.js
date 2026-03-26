@@ -38,10 +38,10 @@ module.exports = {
                 .setThumbnail(interaction.client.user.displayAvatarURL())
                 .addFields(
                     { name: '⚡ Core Efficiency', value: `${ (os.loadavg()[0] / 2 * 100).toFixed(1) }%`, inline: true },
-                    { name: '🛠 Build Sequence', value: 'V4.9.7-CORE', inline: true },
+                    { name: '🛠 Build Sequence', value: 'V4.9.8-CORE', inline: true },
                     {
                         name: '📊 Pᴇʀғᴏʀᴍᴀɴᴄᴇ',
-                        value: `\`\`\`yaml\nRAM: ${rssMB} MB (RSS)\nHeap: ${heapMB} MB\nUptime: ${uptimeStr}\nLat: ${interaction.client.ws.ping}ms\`\`\``,
+                        value: `\`\`\`yaml\nRAM: ${rssMB} MB (RSS)\nHeap: ${heapMB} MB\nUptime: ${uptimeStr}\nLat: ${interaction.client.ws.ping}ms\n────────────────────────────────────────\`\`\``,
                         inline: false 
                     }
                 );
@@ -53,7 +53,7 @@ module.exports = {
                 
                 embed.addFields({
                     name: '🛡️ PM2 Mᴏɴɪᴛᴏʀ',
-                    value: `\`\`\`yaml\nStatus: ${status.toUpperCase()}\nRestarts: ${restarts}\nCPU: ${cpu}%\nManager: PM2\`\`\``,
+                    value: `\`\`\`yaml\nStatus: ${status.toUpperCase()}\nRestarts: ${restarts}\nCPU: ${cpu}%\nManager: PM2\n────────────────────────────────────────\`\`\``,
                     inline: false
                 });
             }
