@@ -758,9 +758,10 @@ function App() {
               {/* Game Viewport */}
               <div className="absolute inset-0 flex items-center justify-center bg-[#000]">
                 <iframe 
-                  src="https://freepacman.org/" 
+                  src="https://www.google.com/logos/2010/pacman10-i.html" 
                   className="w-full h-full border-none"
                   title="Neural Ghost V2"
+                  allow="autoplay; fullscreen"
                 />
               </div>
 
