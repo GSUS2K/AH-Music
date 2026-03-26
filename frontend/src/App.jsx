@@ -310,8 +310,8 @@ function App() {
                <div className="absolute -top-1 -right-1 w-2 h-2 bg-brand-accent rounded-full shadow-[0_0_8px_#00ffbf]" />
              </div>
              <div className="flex flex-col">
-               <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                 <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.2.3'} // ATMOSPHERE_CERTIFIED</span>
+               <span className="font-black text-[12px] uppercase tracking-tighter leading-none mini-hide">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
+                 <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em] mini-hide">V{systemStats?.version || '5.2.5'} // MINI_PRO_MAX</span>
              </div>
           </div>
           
@@ -412,13 +412,13 @@ function App() {
 
       </header>
 
-      <main className="flex-1 mt-24 md:mt-16 overflow-hidden px-4 md:px-6 py-4 md:grid md:grid-cols-12 gap-6 relative z-10 w-full mb-4 compact-mt no-scrollbar overflow-y-auto">
+      <main className="flex-1 mt-24 md:mt-16 overflow-hidden px-4 md:px-6 py-4 md:grid md:grid-cols-12 gap-6 relative z-10 w-full mb-4 compact-mt mini-mt no-scrollbar overflow-y-auto">
         
         {/* PLAYER & LYRICS */}
         <div className="flex flex-col gap-6 md:col-span-8 md:max-h-[calc(100vh-6rem)] md:overflow-hidden min-w-0">
           
           {/* PLAYER CARD */}
-          <div className="glass-card p-6 md:p-10 flex flex-col sm:flex-row gap-8 md:gap-10 relative overflow-hidden group shrink-0">
+          <div className="glass-card p-6 md:p-10 flex flex-col sm:flex-row gap-8 md:gap-10 relative overflow-hidden group shrink-0 mini-card">
             {currentTrack && (
               <div className="absolute inset-0 blur-[120px] opacity-10 pointer-events-none group-hover:opacity-20 transition-opacity">
                 <img src={getProxyUrl(currentTrack.thumbnail)} alt="" className="w-full h-full object-cover" />
@@ -427,8 +427,8 @@ function App() {
 
             {currentTrack ? (
               <>
-                <div className="w-full sm:w-64 lg:w-80 flex-shrink-0">
-                  <div className="relative aspect-square rounded-[2rem] overflow-hidden shadow-2xl border border-white/5 mx-auto sm:mx-0 max-w-[280px] sm:max-w-none hover:scale-[1.02] transition-transform duration-500">
+                <div className="w-full sm:w-64 lg:w-80 flex-shrink-0 mini-hide">
+                  <div className="relative aspect-square rounded-[2rem] overflow-hidden shadow-2xl border border-white/5 mx-auto sm:mx-0 max-w-[280px] sm:max-w-none hover:scale-[1.02] transition-transform duration-500 mini-thumb">
                     <img src={getProxyUrl(currentTrack.thumbnail)} alt="" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/60 via-transparent to-transparent opacity-60" />
                     <div className="absolute bottom-6 left-6 flex gap-1.5 items-end h-8">
@@ -438,11 +438,11 @@ function App() {
                 </div>
 
                 <div className="flex-1 flex flex-col justify-center min-w-0 text-center sm:text-left pt-4 sm:pt-0">
-                  <div className="label-caps mb-3 text-brand-accent/50 text-[10px] flex items-center gap-2 justify-center sm:justify-start">
+                  <div className="label-caps mb-3 text-brand-accent/50 text-[10px] flex items-center gap-2 justify-center sm:justify-start mini-hide">
                      <span className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
                      Signal Output // Active
                   </div>
-                  <h1 className="text-3xl lg:text-5xl font-black tracking-tighter mb-2 truncate leading-none uppercase">
+                  <h1 className="text-3xl lg:text-5xl font-black tracking-tighter mb-2 truncate leading-none uppercase mini-title">
                     {currentTrack.title}
                   </h1>
                   <p className="text-brand-accent text-lg lg:text-xl font-bold mb-8 lg:mb-12 truncate opacity-80 uppercase tracking-widest">
@@ -457,17 +457,17 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-center sm:justify-start gap-5 lg:gap-8">
-                    <button onClick={() => handleControl(isPlaying ? 'pause' : 'resume')} className="btn-mint w-16 h-16 lg:w-20 lg:h-20 flex items-center justify-center p-0 rounded-3xl shadow-neon-strong active:scale-95 transition-all">
+                  <div className="flex items-center justify-center sm:justify-start gap-5 lg:gap-8 mini-controls">
+                    <button onClick={() => handleControl(isPlaying ? 'pause' : 'resume')} className="btn-mint w-16 h-16 lg:w-20 lg:h-20 flex items-center justify-center p-0 rounded-3xl shadow-neon-strong active:scale-95 transition-all mini-btn">
                       {isPlaying ? <Pause size={32} lg:size={40} fill="currentColor" /> : <Play size={32} lg:size={40} fill="currentColor" className="ml-1" />}
                     </button>
-                    <button onClick={() => handleControl('skip')} className="w-12 h-12 lg:w-16 lg:h-16 glass-card hover:border-brand-accent transition-all flex items-center justify-center rounded-2xl active:scale-90 bg-white/5 border-white/5">
+                    <button onClick={() => handleControl('skip')} className="w-12 h-12 lg:w-16 lg:h-16 glass-card hover:border-brand-accent transition-all flex items-center justify-center rounded-2xl active:scale-90 bg-white/5 border-white/5 mini-btn-sm">
                       <SkipForward size={24} lg:size={32} />
                     </button>
-                    <button onClick={() => handleControl('clear')} className="w-12 h-12 lg:w-16 lg:h-16 glass-card hover:border-red-500 hover:text-red-500 hover:bg-red-500/5 transition-all flex items-center justify-center rounded-2xl active:scale-90 bg-white/5 border-white/5">
+                    <button onClick={() => handleControl('clear')} className="w-12 h-12 lg:w-16 lg:h-16 glass-card hover:border-red-500 hover:text-red-500 hover:bg-red-500/5 transition-all flex items-center justify-center rounded-2xl active:scale-90 bg-white/5 border-white/5 mini-btn-sm">
                       <Trash2 size={24} lg:size={32} />
                     </button>
-                    <button onClick={() => currentTrack.actualUrl && discordSdkRef.current?.commands.openExternalLink({ url: currentTrack.actualUrl })} className="hidden sm:flex w-12 h-12 lg:w-16 lg:h-16 glass-card hover:border-brand-accent transition-all items-center justify-center rounded-2xl active:scale-90 bg-white/5 border-white/5">
+                    <button onClick={() => currentTrack.actualUrl && discordSdkRef.current?.commands.openExternalLink({ url: currentTrack.actualUrl })} className="hidden sm:flex w-12 h-12 lg:w-16 lg:h-16 glass-card hover:border-brand-accent transition-all items-center justify-center rounded-2xl active:scale-90 bg-white/5 border-white/5 mini-btn-sm">
                       <ExternalLink size={20} lg:size={28} />
                     </button>
                   </div>

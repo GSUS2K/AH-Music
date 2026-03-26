@@ -82,6 +82,19 @@
   .compact-island-hide { display: none !important; }
 }
 
+/* V5.2.5 - Ultra-Mini (Discord PIP / Minimized) */
+@media (max-height: 280px) {
+  .mini-hide { display: none !important; }
+  .mini-header { height: 0 !important; min-height: 0 !important; border: 0 !important; padding: 0 !important; overflow: hidden !important; }
+  .mini-mt { margin-top: 0.5rem !important; }
+  .mini-card { padding: 0.75rem !important; gap: 1rem !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+  .mini-thumb { width: 60px !important; height: 60px !important; border-radius: 1rem !important; }
+  .mini-title { font-size: 1.25rem !important; }
+  .mini-controls { gap: 1rem !important; }
+  .mini-btn { width: 3.5rem !important; height: 3.5rem !important; }
+  .mini-btn-sm { width: 2.75rem !important; height: 2.75rem !important; }
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
