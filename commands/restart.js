@@ -48,9 +48,9 @@ module.exports = {
                 });
             }
 
-            interaction.followUp({ content: '🚀 **Update Found!** Pulling & Rebuilding neural-activity...', ephemeral: true });
+            interaction.followUp({ content: '🚀 **Update Found!** Pulling, Installing & Rebuilding...', ephemeral: true });
 
-            const updateCommand = `git reset --hard origin/main && npm run build-activity`;
+            const updateCommand = `git reset --hard origin/main && npm install && npm run build-activity`;
             
             exec(updateCommand, (buildErr) => {
                 if (buildErr) {
@@ -61,7 +61,7 @@ module.exports = {
                 const context = { channelId: interaction.channelId, updated: true, timestamp: Date.now() };
                 fs.writeFileSync('./.restart_context.json', JSON.stringify(context));
 
-                interaction.followUp({ content: '✅ **Update successful.** Rebooting...', ephemeral: true }).then(() => {
+                interaction.followUp({ content: '✅ **Update successful (V5.0.2-AUTONOMY).** Rebooting...', ephemeral: true }).then(() => {
                     exec(`pm2 restart ${pm2Name}`);
                 });
             });
