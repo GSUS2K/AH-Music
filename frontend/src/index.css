@@ -67,3 +67,25 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-brand-accent);
 }
+
+/* V5.2.0 - Ultra Compact Adaptive Utilities */
+@media (max-height: 600px) {
+  .compact-hide { display: none !important; }
+  .compact-padding { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+  .compact-gap { gap: 0.5rem !important; }
+  .compact-header { height: 3.5rem !important; }
+  .compact-mt { margin-top: 3.5rem !important; }
+}
+
+@media (max-width: 600px), (max-height: 500px) {
+  .ultra-compact-hide { display: none !important; }
+  .compact-island-hide { display: none !important; }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
