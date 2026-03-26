@@ -37,7 +37,7 @@ module.exports = {
                 .setThumbnail(interaction.client.user.displayAvatarURL())
                 .addFields(
                     { name: '⚡ Core Efficiency', value: `${ (os.loadavg()[0] / 2 * 100).toFixed(1) }%`, inline: true },
-                    { name: '🛠 Build Sequence', value: 'V4.8.7-NEURAL', inline: true },
+                    { name: '🛠 Build Sequence', value: 'V4.8.9-SYNAPSE', inline: true },
                     {
                         name: '📊 Pᴇʀғᴏʀᴍᴀɴᴄᴇ',
                         value: `\`\`\`yaml\nRAM: ${rssMB} MB (RSS)\nHeap: ${heapMB} MB\nUptime: ${uptimeStr}\nLat: ${interaction.client.ws.ping}ms\`\`\``,

@@ -15,7 +15,7 @@ module.exports = {
             .setThumbnail(client.user.displayAvatarURL())
             .setDescription('Integrated Discord Music Bot & Interactive Web Activity.')
             .addFields(
-                { name: '🌐 System Version', value: 'V4.8.7-NEURAL', inline: true },
+                { name: '🌐 System Version', value: 'V4.8.9-SYNAPSE', inline: true },
                 {
                     name: '🌐 Hᴏsᴛɪɴɢ Pʟᴀᴛғᴏʀᴍ',
                     value: '```yaml\nProvider: Google Cloud Platform (E2-Micro)\nInstance: Ubuntu 24.04 (x86_64)\nLocation: The Dalles, Oregon (US)\nUptime: ' + uptimeStr + '```',

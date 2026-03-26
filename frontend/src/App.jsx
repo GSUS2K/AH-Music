@@ -232,7 +232,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.8.8 // STABLE</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.8.9 // SYNC_ACTIVE</span>
              </div>
           </div>
           
@@ -412,7 +412,15 @@ function App() {
                   {lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIndex;
                     return (
-                      <div key={idx} ref={isActive ? activeLyricRef : null} className={`text-2xl sm:text-3xl lg:text-4xl font-black transition-all duration-700 transform leading-tight ${isActive ? 'text-white translate-x-3 scale-110 opacity-100' : 'text-white/10 blur-[2px] transition-all'}`}>
+                      <div 
+                        key={idx} 
+                        ref={isActive ? activeLyricRef : null} 
+                        className={`text-2xl sm:text-3xl lg:text-4xl font-black transition-all duration-700 transform leading-tight py-3 ${
+                          isActive 
+                            ? 'text-brand-accent scale-110 lg:scale-115 opacity-100 drop-shadow-[0_0_20px_rgba(0,255,191,0.6)] translate-x-4' 
+                            : 'text-white/30 opacity-60 hover:opacity-100 transition-opacity cursor-default'
+                        }`}
+                      >
                         {line.text}
                       </div>
                     );
