@@ -291,7 +291,8 @@ function App() {
   );
 
   return (
-    <div className="min-h-screen bg-mesh text-white selection:bg-brand-accent/30 selection:text-brand-accent overflow-x-hidden flex flex-col">
+    <div className="h-screen w-screen bg-mesh bg-fixed selection:bg-brand-accent selection:text-brand-dark flex flex-col overflow-hidden relative">
+      <div className="absolute inset-0 bg-black/40 pointer-events-none" />
       {/* Background Glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-brand-accent/5 blur-[100px] rounded-full animate-pulse-glow" />
@@ -309,7 +310,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.1'} // COLLABRIX_THEME</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.3'} // SYNC_MASTER_HUD</span>
              </div>
           </div>
           
@@ -370,29 +371,29 @@ function App() {
             <User size={20} className="text-brand-text-dim group-hover:text-brand-accent" />
           </div>
         </div>
+
+        {/* INTEGRATED HUD: Moved from floating to header next to user */}
+        <div className="hidden xl:flex items-center gap-6 glass-card px-6 py-2 bg-white/[0.03] border-white/5 pointer-events-none opacity-40">
+            <div className="flex flex-col">
+               <div className="flex items-center gap-2 text-[8px] font-mono text-brand-text-dim uppercase tracking-tighter mb-0.5"><Cpu size={10} className="text-brand-accent" /> SYNAPSE</div>
+               <div className="text-[10px] font-black font-mono text-brand-accent tracking-tighter">{systemStats?.load || '0.00'}</div>
+            </div>
+            <div className="w-[1px] h-4 bg-white/10" />
+            <div className="flex flex-col">
+               <div className="flex items-center gap-2 text-[8px] font-mono text-brand-text-dim uppercase tracking-tighter mb-0.5"><HardDrive size={10} className="text-brand-accent" /> MEM</div>
+               <div className="text-[11px] font-black font-mono text-brand-accent tracking-tighter">{systemStats?.mem?.percent ? `${systemStats.mem.percent}%` : '0%'}</div>
+            </div>
+            <div className="w-[1px] h-4 bg-white/10" />
+            <div className="flex flex-col">
+               <div className="flex items-center gap-2 text-[8px] font-mono text-brand-text-dim uppercase tracking-tighter mb-0.5"><Wifi size={10} className="text-green-500/50" /> LINK</div>
+               <div className="text-[11px] font-black font-mono text-green-400 tracking-tighter uppercase">OK</div>
+            </div>
+        </div>
       </header>
 
-      {/* Floating Telemetry Hub (The "Neural Link") */}
-      <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-2">
-         <div className="glass-card p-3 px-5 flex items-center gap-6 border-brand-accent/20 bg-brand-dark/80 backdrop-blur-2xl group cursor-help">
-            <div className="flex flex-col">
-               <div className="flex items-center gap-2 text-[9px] font-mono text-brand-text-dim uppercase tracking-tighter mb-1"><Cpu size={10} className="text-brand-accent" /> SYNAPSE</div>
-               <div className="text-[12px] font-black font-mono text-brand-accent tracking-tighter">{systemStats?.load || '0.00'}</div>
-            </div>
-            <div className="w-[1px] h-6 bg-white/10" />
-            <div className="flex flex-col">
-               <div className="flex items-center gap-2 text-[9px] font-mono text-brand-text-dim uppercase tracking-tighter mb-1"><HardDrive size={10} className="text-brand-accent" /> MEM_ALLOC</div>
-               <div className="text-[12px] font-black font-mono text-brand-accent tracking-tighter">{systemStats?.mem?.percent ? `${systemStats.mem.percent}%` : '0%'}</div>
-            </div>
-            <div className="w-[1px] h-6 bg-white/10" />
-            <div className="flex flex-col">
-               <div className="flex items-center gap-2 text-[9px] font-mono text-brand-text-dim uppercase tracking-tighter mb-1"><Wifi size={10} className="group-hover:text-green-400 transition-colors" /> LINK</div>
-               <div className="text-[12px] font-black font-mono text-green-400 tracking-tighter uppercase">OK</div>
-            </div>
-         </div>
-      </div>
 
-      <main className="flex-1 mt-32 lg:mt-16 px-4 lg:px-6 py-6 lg:grid lg:grid-cols-12 gap-6 relative z-10 w-full pb-32">
+
+      <main className="flex-1 overflow-hidden px-4 lg:px-6 py-6 lg:grid lg:grid-cols-12 gap-6 relative z-10 w-full">
         
         {/* PLAYER & LYRICS */}
         <div className="flex flex-col gap-6 lg:col-span-8 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden min-w-0">
