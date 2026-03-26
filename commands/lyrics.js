@@ -1,4 +1,3 @@
-```javascript
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
