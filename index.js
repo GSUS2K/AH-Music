@@ -256,7 +256,12 @@ apiRouter.post('/control/:guildId', async (req, res) => {
             case 'resume': player.unpause(); break;
             case 'skip': playCmd.cleanup(guildId, client.queues); player.stop(); break;
             case 'stop':
-            case 'clear': playCmd.cleanup(guildId, client.queues); client.queues.delete(guildId); connection.destroy(); break;
+            case 'clear': 
+                if (player) player.stop();
+                playCmd.cleanup(guildId, client.queues); 
+                client.queues.delete(guildId); 
+                if (connection) connection.destroy(); 
+                break;
             case 'sync_plus': if (queue) queue.lyricOffsetMs = (queue.lyricOffsetMs || 0) + 1000; break;
             case 'sync_minus': if (queue) queue.lyricOffsetMs = (queue.lyricOffsetMs || 0) - 1000; break;
             default: return res.status(400).json({ error: 'Invalid action' });
