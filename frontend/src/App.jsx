@@ -131,10 +131,7 @@ function App() {
   useEffect(() => {
     // Normal Sync
     if (activeLyricRef.current && !isAutoScrollPaused && lyricsContainerRef.current) {
-        const activeLine = activeLyricRef.current;
-        const container = lyricsContainerRef.current;
-        const targetScroll = activeLine.offsetTop - (container.offsetHeight / 2) + (activeLine.offsetHeight / 2);
-        container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+        activeLyricRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     // Expanded Sync
     if (expandedActiveRef.current && !isAutoScrollPaused && expandedContainerRef.current) {
@@ -243,7 +240,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.1 // SYNC_RECOVERY</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.4 // SYNC_VISIBLE</span>
              </div>
           </div>
           
@@ -430,17 +427,17 @@ function App() {
               {isLyricsLoading ? (
                 <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-brand-accent" size={48} /></div>
               ) : lyrics.length > 0 ? (
-                <div className="flex flex-col gap-8 lg:gap-12 pb-24 pt-12 text-center sm:text-left">
+                <div className="flex flex-col gap-6 py-4 text-center sm:text-left">
                   {lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIndex;
                     return (
                       <div 
                         key={idx} 
                         ref={isActive ? activeLyricRef : null} 
-                        className={`text-2xl sm:text-3xl lg:text-4xl font-black transition-all duration-700 transform leading-tight py-3 ${
+                        className={`text-xl sm:text-2xl lg:text-3xl font-black transition-all duration-700 transform leading-tight py-2 ${
                           isActive 
-                            ? 'text-brand-accent scale-110 lg:scale-115 opacity-100 drop-shadow-[0_0_20px_rgba(0,255,191,0.6)] translate-x-4' 
-                            : 'text-white/30 opacity-60 hover:opacity-100 transition-opacity cursor-default'
+                            ? 'text-brand-accent scale-105 opacity-100 drop-shadow-[0_0_15px_rgba(0,255,191,0.5)] translate-x-2' 
+                            : 'text-white/50 opacity-80 hover:opacity-100 transition-opacity cursor-default'
                         }`}
                       >
                         {line.text}
