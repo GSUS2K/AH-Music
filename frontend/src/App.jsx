@@ -46,6 +46,8 @@ function App() {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [uptime, setUptime] = useState("00:00:00");
   const [isLyricsExpanded, setIsLyricsExpanded] = useState(false);
+  const expandedContainerRef = useRef(null);
+  const expandedActiveRef = useRef(null);
 
   const getProxyUrl = (url) => url ? `${API_BASE}/api/proxy?url=${encodeURIComponent(url)}` : null;
 
@@ -127,9 +129,17 @@ function App() {
   }, [currentTime, lyrics, lyricOffsetMs]);
 
   useEffect(() => {
+    // Normal Sync
     if (activeLyricRef.current && !isAutoScrollPaused && lyricsContainerRef.current) {
         const activeLine = activeLyricRef.current;
         const container = lyricsContainerRef.current;
+        const targetScroll = activeLine.offsetTop - (container.offsetHeight / 2) + (activeLine.offsetHeight / 2);
+        container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+    }
+    // Expanded Sync
+    if (expandedActiveRef.current && !isAutoScrollPaused && expandedContainerRef.current) {
+        const activeLine = expandedActiveRef.current;
+        const container = expandedContainerRef.current;
         const targetScroll = activeLine.offsetTop - (container.offsetHeight / 2) + (activeLine.offsetHeight / 2);
         container.scrollTo({ top: targetScroll, behavior: 'smooth' });
     }
@@ -233,7 +243,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.0 // SYNC_EXPANDED</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.1 // SYNC_RECOVERY</span>
              </div>
           </div>
           
@@ -420,7 +430,7 @@ function App() {
               {isLyricsLoading ? (
                 <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-brand-accent" size={48} /></div>
               ) : lyrics.length > 0 ? (
-                <div className="flex flex-col gap-10 lg:gap-14 pb-48 pt-48 text-center sm:text-left">
+                <div className="flex flex-col gap-8 lg:gap-12 pb-24 pt-12 text-center sm:text-left">
                   {lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIndex;
                     return (
@@ -560,14 +570,14 @@ function App() {
                   <p className="text-brand-accent font-bold tracking-widest mt-2">{currentTrack?.author}</p>
                </div>
 
-               <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth flex flex-col px-4" ref={lyricsContainerRef} onWheel={() => setIsAutoScrollPaused(true)}>
+               <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth flex flex-col px-4" ref={expandedContainerRef} onWheel={() => setIsAutoScrollPaused(true)}>
                   <div className="flex flex-col gap-12 lg:gap-20 py-[40vh] items-center text-center">
                     {lyrics.map((line, idx) => {
                       const isActive = idx === activeLyricIndex;
                       return (
                         <div 
                           key={idx} 
-                          ref={isActive ? activeLyricRef : null} 
+                          ref={isActive ? expandedActiveRef : null} 
                           className={`text-4xl sm:text-5xl lg:text-7xl font-black transition-all duration-700 transform leading-tight max-w-4xl ${
                             isActive 
                               ? 'text-brand-accent scale-110 opacity-100 drop-shadow-[0_0_30px_rgba(0,255,191,0.5)]' 
