@@ -347,6 +347,14 @@ module.exports = {
         }
 
         player.play(resource);
+
+        // --- DYNAMIC PRESENCE (V4.9.9.2) ---
+        if (interaction && interaction.client.user) {
+            interaction.client.user.setActivity(`${track.title}`, { type: 2 }); // Listening to...
+        } else if (queue.textChannel && queue.textChannel.client.user) {
+            queue.textChannel.client.user.setActivity(`${track.title}`, { type: 2 });
+        }
+
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('pause_resume').setLabel('Pause / Resume').setStyle(ButtonStyle.Primary),
@@ -462,6 +470,14 @@ module.exports = {
                 if (currentLyricIndex !== lastKnownLyricIndex || (currentMs - lastUpdateMs) >= 5000) {
                     lastKnownLyricIndex = currentLyricIndex;
                     lastUpdateMs = currentMs;
+
+                    // Periodic Presence Refresh (Time Sync)
+                    const clientObj = interaction ? interaction.client : (queue.textChannel ? queue.textChannel.client : null);
+                    if (clientObj && clientObj.user) {
+                        const timeStr = `${Math.floor(currentMs/60000)}:${Math.floor((currentMs%60000)/1000).toString().padStart(2,'0')}`;
+                        clientObj.user.setActivity(`${track.title} (${timeStr})`, { type: 2 });
+                    }
+
                     try {
                         await replyMessage.edit({ embeds: [generateEmbed(currentMs)] });
                     } catch (err) {

@@ -129,7 +129,7 @@ apiRouter.get('/search', async (req, res) => {
                 thumb = entry.thumbnails[entry.thumbnails.length - 1].url || entry.thumbnails[0].url;
             }
             return {
-                id: entry.id, title: entry.title, 
+                id: entry.id, title: entry.title,
                 thumbnail: thumb || 'https://cdn.discordapp.com/embed/avatars/0.png',
                 author: entry.uploader || entry.channel || 'Unknown',
                 url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
@@ -220,11 +220,11 @@ apiRouter.post('/control/:guildId', async (req, res) => {
             case 'resume': player?.unpause(); break;
             case 'skip': playCmd.cleanup(guildId, client.queues); player?.stop(); break;
             case 'stop':
-            case 'clear': 
+            case 'clear':
                 if (player) player.stop();
-                playCmd.cleanup(guildId, client.queues); 
-                client.queues.delete(guildId); 
-                if (queue.connection) queue.connection.destroy(); 
+                playCmd.cleanup(guildId, client.queues);
+                client.queues.delete(guildId);
+                if (queue.connection) queue.connection.destroy();
                 break;
         }
         res.json({ success: true });
@@ -246,17 +246,17 @@ apiRouter.get('/proxy', async (req, res) => {
     const url = req.query.url;
     if (!url || url.includes('discordapp.com')) return res.redirect(url || 'https://cdn.discordapp.com/embed/avatars/0.png');
     try {
-        const response = await axios.get(decodeURIComponent(url), { 
-            responseType: 'arraybuffer', 
-            timeout: 8000, 
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } 
+        const response = await axios.get(decodeURIComponent(url), {
+            responseType: 'arraybuffer',
+            timeout: 8000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
         });
         res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
         res.set('Cache-Control', 'public, max-age=86400');
         res.send(response.data);
-    } catch (err) { 
+    } catch (err) {
         console.error('[Proxy Error]', err.message);
-        res.redirect('https://cdn.discordapp.com/embed/avatars/0.png'); 
+        res.redirect('https://cdn.discordapp.com/embed/avatars/0.png');
     }
 });
 
@@ -309,7 +309,7 @@ client.once('ready', async () => {
                     .setTitle('✅ Neural Reboot Successful')
                     .setDescription(`System is back online and all neural nodes have stabilized.`)
                     .addFields(
-                        { name: '🌐 System Version', value: 'V4.9.9-CLARITY', inline: true }
+                        { name: '🌐 System Version', value: 'V4.9.9.2-PRESENCE', inline: true }
                     )
                     .setTimestamp();
                 await channel.send({ embeds: [embed] }).catch(e => console.error('[Recovery] Send Fail:', e.message));
