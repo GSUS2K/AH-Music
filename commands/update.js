@@ -15,30 +15,38 @@ module.exports = {
 
         const pm2Name = process.env.PM2_APP_NAME || 'AH-Music';
         
-        const context = {
-            guildId: interaction.guildId,
-            channelId: interaction.channelId,
-            updated: true,
-            timestamp: Date.now()
-        };
-        fs.writeFileSync('./.restart_context.json', JSON.stringify(context));
+        await interaction.reply({ content: '🔍 **Scanning for neural-updates...**', ephemeral: true });
 
-        await interaction.reply({ 
-            content: '🚀 **Dedicated Neural-Update Sequence Initiated**\n- Pulling latest source...\n- Rebuilding Vite production bundle...\n- Refreshing PM2 process...', 
-            ephemeral: true 
-        });
-
-        const updateCommand = `git fetch --all && git reset --hard origin/main && npm run build-activity`;
-        
-        exec(updateCommand, (err, stdout, stderr) => {
+        // Git fetch and compare
+        exec('git fetch origin main && git rev-parse HEAD && git rev-parse origin/main', (err, stdout) => {
             if (err) {
-                console.error('[Update] Error:', err.message);
-                if (fs.existsSync('./.restart_context.json')) fs.unlinkSync('./.restart_context.json');
-                return interaction.followUp({ content: `❌ **Update Failed**: ${err.message}`, ephemeral: true });
+                return interaction.followUp({ content: '❌ **Neural Scan Failed.** Manual restart recommended.', ephemeral: true });
             }
+
+            const revs = stdout.trim().split('\n');
+            const localHead = revs[revs.length - 2];
+            const remoteHead = revs[revs.length - 1];
+
+            if (localHead === remoteHead) {
+                return interaction.followUp({ content: '✅ **Neural-code is already up-to-date.** No rebuild required.', ephemeral: true });
+            }
+
+            interaction.followUp({ content: '🚀 **Update Found!** Pulling & Rebuilding neural-activity...', ephemeral: true });
+
+            const updateCommand = `git reset --hard origin/main && npm run build-activity`;
             
-            interaction.followUp({ content: '✅ **Rebuild successful.** Restarting instance now...', ephemeral: true }).then(() => {
-                exec(`pm2 restart ${pm2Name}`);
+            exec(updateCommand, (buildErr) => {
+                if (buildErr) {
+                    return interaction.followUp({ content: `❌ **Neural Build Failed**: ${buildErr.message}`, ephemeral: true });
+                }
+                
+                // Write context for startup msg
+                const context = { channelId: interaction.channelId, updated: true, timestamp: Date.now() };
+                fs.writeFileSync('./.restart_context.json', JSON.stringify(context));
+
+                interaction.followUp({ content: '✅ **Update successful.** Rebooting system...', ephemeral: true }).then(() => {
+                    exec(`pm2 restart ${pm2Name}`);
+                });
             });
         });
     }
