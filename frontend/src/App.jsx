@@ -148,13 +148,15 @@ function App() {
   };
 
   useEffect(() => {
+    const SEQUENCE = 'pacman';
     const handleKeyDown = (e) => {
-      // Ignore if typing in search or any input
-      if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
-      
+      // Ignore trigger if user is typing in an input or textarea
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
       setTypedBuffer(prev => {
-        const next = (prev + e.key.toLowerCase()).slice(-10);
-        if (next.includes("pacman")) {
+        const next = (prev + e.key.toLowerCase()).slice(-SEQUENCE.length);
+        if (next === SEQUENCE) {
           setIsPacmanOpen(true);
           return "";
         }
@@ -721,50 +723,51 @@ function App() {
           </motion.div>
         )}
       </AnimatePresence>
-      {/* PAC-MAN EASTER EGG (V5.2.9) */}
+      {/* PAC-MAN EASTER EGG (V5.3.0 - COLLABRIX SYNC) */}
       <AnimatePresence>
         {isPacmanOpen && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-[fadeIn_0.3s_ease-out]"
+            onClick={() => setIsPacmanOpen(false)}
           >
             <motion.div 
               initial={{ scale: 0.8, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.8, y: 20 }}
-              className="w-full max-w-4xl aspect-[4/3] bg-[#000] border-4 border-[#2121ff] rounded-2xl overflow-hidden relative shadow-[0_0_50px_rgba(33,33,255,0.4)]"
+              className="relative w-[90vw] h-[80vh] max-w-5xl bg-[#111] rounded-2xl border-2 border-yellow-400/50 shadow-[0_0_50px_rgba(250,204,21,0.3)] overflow-hidden animate-[slideInUp_0.4s_ease-out]"
+              onClick={(e) => e.stopPropagation()}
             >
-              {/* Retro Header */}
-              <div className="absolute top-0 left-0 right-0 h-16 bg-[#000] border-b-2 border-[#2121ff] flex items-center justify-between px-8 z-10">
-                <div className="flex flex-col">
-                  <h2 className="text-[#ffff00] font-black text-2xl tracking-[0.2em] italic uppercase">PAC-MAN</h2>
-                  <span className="text-[#ff0000] text-[8px] font-mono tracking-widest uppercase opacity-80">SECRET UNLOCKED — YOU FOUND IT!</span>
-                </div>
-                <button 
-                  onClick={() => setIsPacmanOpen(false)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
-                >
-                  <X className="text-[#ffff00]" size={24} />
-                </button>
-              </div>
+              {/* Close Button */}
+              <button 
+                onClick={() => setIsPacmanOpen(false)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/40 hover:bg-black/60 text-yellow-500 transition-colors z-50"
+              >
+                <X size={24} />
+              </button>
 
               {/* Game Viewport */}
-              <div className="absolute inset-0 pt-16 flex items-center justify-center bg-black">
+              <div className="absolute inset-0 flex items-center justify-center bg-[#000]">
                 <iframe 
-                  src="https://www.google.com/logos/2010/pacman10-i.html" 
-                  className="w-full h-full border-0"
-                  title="Neural Ghost Protocol"
-                  style={{ transform: 'scale(1.2)', transformOrigin: 'center' }}
+                  src="https://freepacman.org/" 
+                  className="w-full h-full border-none"
+                  title="Neural Ghost V2"
                 />
               </div>
 
-              {/* Instruction overlay */}
-              <div className="absolute bottom-6 left-0 right-0 text-center">
-                 <span className="bg-black/80 px-4 py-2 rounded-full border border-[#2121ff] text-[#ffff00] text-[10px] font-mono tracking-widest uppercase animate-pulse">
-                   INSERT COIN TO START // USE ARROWS TO NAVIGATE
-                 </span>
+              {/* Legacy Header Info (Styled to match screenshot) */}
+              <div className="absolute top-6 left-8 z-10 pointer-events-none">
+                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 flex items-center justify-center bg-yellow-400/20 rounded-lg border border-yellow-400/40">
+                       <Play size={16} className="text-yellow-400 fill-yellow-400" />
+                    </div>
+                    <div className="flex flex-col">
+                       <h2 className="text-yellow-400 font-black text-xl tracking-[0.2em] uppercase leading-none">PAC-MAN</h2>
+                       <span className="text-white/40 text-[8px] font-mono tracking-widest uppercase mt-1">GHOST_PROTOCOL // LEGACY_SYNC</span>
+                    </div>
+                 </div>
               </div>
             </motion.div>
           </motion.div>
