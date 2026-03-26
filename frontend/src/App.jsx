@@ -444,7 +444,7 @@ function App() {
                       </div>
 
                       <div className="discovery-links">
-                        <a href={`${API_BASE}/api/proxy?url=${encodeURIComponent(currentTrack.actualUrl)}`} target="_blank" className="btn-sync highlight" title="Source Link">
+                        <a href={currentTrack.actualUrl} target="_blank" rel="noopener noreferrer" className="btn-sync highlight" title="Source Link">
                            SOURCE <ExternalLink size={14} />
                         </a>
                       </div>

@@ -199,6 +199,31 @@ apiRouter.post('/add/:guildId', async (req, res) => {
     res.json({ success: true, position: queue.songs.length - 1 });
 });
 
+apiRouter.post('/sync/:guildId', async (req, res) => {
+    const { offset } = req.body;
+    const guildId = req.params.guildId;
+    const queue = client.queues.get(guildId);
+    if (!queue) return res.status(404).json({ error: 'No active queue' });
+    queue.lyricOffsetMs = (queue.lyricOffsetMs || 0) + (offset || 0);
+    res.json({ success: true, offset: queue.lyricOffsetMs });
+});
+
+apiRouter.post('/source/:guildId', async (req, res) => {
+    const guildId = req.params.guildId;
+    const queue = client.queues.get(guildId);
+    if (!queue || !queue.songs?.[0]) return res.status(404).json({ error: 'No active track' });
+    const track = queue.songs[0];
+    try {
+        const playCmd = require('./commands/play.js');
+        const results = await playCmd.fetchSyncedLyrics(track.title, track.author, (track.duration || track.totalDurationMs) / 1000, track.query, track.actualUrl, true);
+        if (results && results.lyrics) {
+            track.syncedLyrics = results;
+            return res.json({ success: true, lyrics: results.lyrics });
+        }
+        res.status(404).json({ error: 'No alternative lyrics found' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 apiRouter.post('/control/:guildId', async (req, res) => {
     const { action } = req.body;
     const guildId = req.params.guildId;
