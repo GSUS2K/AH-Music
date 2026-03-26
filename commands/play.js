@@ -6,6 +6,7 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const { PassThrough } = require('stream');
+const { version } = require('../version.json');
 
 module.exports = {
     fetchSyncedLyrics: fetchSyncedLyrics,
@@ -475,7 +476,7 @@ module.exports = {
                     const clientObj = interaction ? interaction.client : (queue.textChannel ? queue.textChannel.client : null);
                     if (clientObj && clientObj.user) {
                         const timeStr = `${Math.floor(currentMs/60000)}:${Math.floor((currentMs%60000)/1000).toString().padStart(2,'0')}`;
-                        clientObj.user.setActivity(`${track.title} (${timeStr}) | V5.0.0`, { type: 2 });
+                        clientObj.user.setActivity(`${track.title} (${timeStr}) | V${version}`, { type: 2 });
                     }
 
                     try {

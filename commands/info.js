@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { version } = require('../version.json');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,7 +16,7 @@ module.exports = {
             .setThumbnail(client.user.displayAvatarURL())
             .setDescription('Integrated Discord Music Bot & Interactive Web Activity.')
             .addFields(
-                { name: '🌐 System Version', value: 'V4.9.9.2-PRESENCE', inline: true },
+                { name: '🌐 System Version', value: `V${version}`, inline: true },
                 {
                     name: '🌐 Hᴏsᴛɪɴɢ Pʟᴀᴛғᴏʀᴍ',
                     value: '```yaml\nProvider: Google Cloud Platform (E2-Micro)\nInstance: Ubuntu 24.04 (x86_64)\nLocation: The Dalles, Oregon (US)\nUptime: ' + uptimeStr + '```',

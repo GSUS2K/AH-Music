@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { exec } = require('child_process');
 const fs = require('fs');
+const { version } = require('../version.json');
 
 const OWNER_ID = process.env.OWNER_ID || '682288992456409096';
 
@@ -61,7 +62,7 @@ module.exports = {
                 const context = { channelId: interaction.channelId, updated: true, timestamp: Date.now() };
                 fs.writeFileSync('./.restart_context.json', JSON.stringify(context));
 
-                interaction.followUp({ content: '✅ **Update successful (V5.0.2-AUTONOMY).** Rebooting...', ephemeral: true }).then(() => {
+                interaction.followUp({ content: `✅ **Update successful (V${version}-AUTONOMY).** Rebooting...`, ephemeral: true }).then(() => {
                     exec(`pm2 restart ${pm2Name}`);
                 });
             });

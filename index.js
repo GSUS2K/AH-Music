@@ -55,6 +55,7 @@ const compression = require('compression');
 const app = express();
 app.use(compression());
 const axios = require('axios');
+const { version } = require('./version.json');
 app.use(cors());
 app.use(express.json({
     verify: (req, res, buf) => {
@@ -265,7 +266,8 @@ apiRouter.get('/system', (req, res) => {
     const usedMem = totalMem - os.freemem();
     res.json({
         mem: { total: totalMem, used: usedMem, percent: ((usedMem / totalMem) * 100).toFixed(1) },
-        uptime: process.uptime(), load: os.loadavg()[0].toFixed(2), activeQueues: client.queues.size
+        uptime: process.uptime(), load: os.loadavg()[0].toFixed(2), activeQueues: client.queues.size,
+        version: version
     });
 });
 
@@ -309,7 +311,7 @@ client.once('ready', async () => {
                     .setTitle('✅ Neural Reboot Successful')
                     .setDescription(`System is back online and all neural nodes have stabilized.`)
                     .addFields(
-                        { name: '🌐 System Version', value: 'V5.0.0-STABLE', inline: true }
+                        { name: '🌐 System Version', value: `V${version}`, inline: true }
                     )
                     .setTimestamp();
                 await channel.send({ embeds: [embed] }).catch(e => console.error('[Recovery] Send Fail:', e.message));
