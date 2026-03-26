@@ -385,13 +385,13 @@ function App() {
                   </span>
                 </button>
 
-                {/* NEURAL LINK INVITE */}
+                {/* NEURAL LINK INVITE (PROMINENT - V5.3.7) */}
                 <button 
                   onClick={() => discordSdkRef.current?.commands.openInviteDialog()}
-                  className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 hover:bg-brand-accent/20 transition-all mini-hide group"
+                  className="flex items-center gap-2 px-5 py-2 rounded-full bg-brand-accent text-brand-dark font-black hover:shadow-[0_0_20px_rgba(0,255,191,0.5)] transition-all animate-pulse-subtle group"
                 >
-                  <UserPlus size={12} className="text-brand-accent group-hover:scale-110 transition-transform" />
-                  <span className="text-[9px] font-black uppercase tracking-widest text-brand-accent">Link</span>
+                  <UserPlus size={14} className="group-hover:scale-110 transition-transform" fill="currentColor" />
+                  <span className="text-[10px] uppercase tracking-tighter">Invite Friends</span>
                 </button>
 
                 <AnimatePresence>
