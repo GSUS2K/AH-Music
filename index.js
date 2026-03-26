@@ -296,6 +296,25 @@ app.listen(PORT, () => {
 
 client.once('ready', async () => {
     console.log(`[BOOT] Logged in as ${client.user.tag}!`);
+
+    // REBOOT RECOVERY (PRIORITY ONE)
+    const contextPath = path.join(__dirname, '.restart_context.json');
+    if (fs.existsSync(contextPath)) {
+        try {
+            const context = JSON.parse(fs.readFileSync(contextPath, 'utf8'));
+            const channel = client.channels.cache.get(context.channelId) || await client.channels.fetch(context.channelId).catch(() => null);
+            if (channel) {
+                const embed = new EmbedBuilder()
+                    .setColor('#00ffbf')
+                    .setTitle('✅ Neural Reboot Successful')
+                    .setDescription(`System is back online and all neural nodes have stabilized. \n**Build Sequence:** \`V4.9.5-FINAL\``)
+                    .setTimestamp();
+                await channel.send({ embeds: [embed] }).catch(e => console.error('[Recovery] Send Fail:', e.message));
+            }
+            fs.unlinkSync(contextPath);
+        } catch (err) { console.error('[Recovery] Critical Failure:', err.message); }
+    }
+
     const commandsData = client.commands.map(c => c.data.toJSON ? c.data.toJSON() : c.data);
     try {
         await client.application.commands.set(commandsData);
@@ -305,24 +324,6 @@ client.once('ready', async () => {
             await fullGuild.commands.set(commandsData).catch(e => console.error(`[Sync] Guild Fail: ${fullGuild.name}`, e.message));
         }
         console.log('[Sync] Neural Indexing Complete.');
-        
-        // REBOOT RECOVERY
-        const contextPath = path.join(__dirname, '.restart_context.json');
-        if (fs.existsSync(contextPath)) {
-            try {
-                const context = JSON.parse(fs.readFileSync(contextPath, 'utf8'));
-                const channel = await client.channels.fetch(context.channelId);
-                if (channel) {
-                    const embed = new EmbedBuilder()
-                        .setColor('#00ffbf')
-                        .setTitle('✅ Neural Reboot Successful')
-                        .setDescription(`System is back online and all neural nodes have stabilized. \n**Build Sequence:** \`V4.9.2-BOOT\``)
-                        .setTimestamp();
-                    await channel.send({ embeds: [embed] });
-                }
-                fs.unlinkSync(contextPath);
-            } catch (err) { console.error('[Recovery] Failed:', err.message); }
-        }
     } catch (error) { console.error('[Sync] Registry Failure:', error); }
 });
 
