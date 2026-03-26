@@ -310,7 +310,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.4'} // LAYOUT_OPTIMIZED</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.5'} // IDENTITY_RECOGNIZED</span>
              </div>
           </div>
           
@@ -367,8 +367,16 @@ function App() {
                 </div>
              </div>
           </div>
-          <div className="w-10 h-10 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden shrink-0 group hover:border-brand-accent transition-colors">
-            <User size={20} className="text-brand-text-dim group-hover:text-brand-accent" />
+          <div className="w-10 h-10 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden shrink-0 group hover:border-brand-accent transition-colors bg-white/5">
+             {auth?.user?.avatar ? (
+               <img 
+                 src={`https://cdn.discordapp.com/avatars/${auth.user.id}/${auth.user.avatar}.png?size=64`} 
+                 alt="User" 
+                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+               />
+             ) : (
+               <User size={20} className="text-brand-text-dim group-hover:text-brand-accent" />
+             )}
           </div>
         </div>
 
