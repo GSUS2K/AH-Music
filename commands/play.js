@@ -351,18 +351,23 @@ module.exports = {
 
         player.play(resource);
 
-        // --- DYNAMIC PRESENCE (V5.3.4) ---
-        const updatePresence = (clientObj, currentMs = 0) => {
-            if (!clientObj?.user) return;
-            const progressStr = `${Math.floor(currentMs/60000)}:${Math.floor((currentMs%60000)/1000).toString().padStart(2,'0')} / ${durationStr}`;
-            clientObj.user.setActivity({
-                name: 'AH Music',
-                type: ActivityType.Listening, // Reverted to Listening
-                details: `${track.title.slice(0, 127)}`,
-                state: `by ${track.author.slice(0, 127)}`,
-                largeImageKey: track.thumbnail?.startsWith('http') ? track.thumbnail : 'icon',
-                largeImageText: `V5.3.12 | Q: ${queue.songs.length}`.slice(0, 127)
-            });
+        // --- DYNAMIC PRESENCE (V5.3.13) ---
+        const durationStr = track.totalDurationMs === 0 ? 'LIVE' : `${Math.floor(track.totalDurationMs / 60000)}:${Math.floor((track.totalDurationMs % 60000) / 1000).toString().padStart(2, '0')}`;
+        
+        const updatePresence = (clientObj) => {
+            try {
+                if (!clientObj?.user) return;
+                clientObj.user.setActivity({
+                    name: 'AH Music',
+                    type: ActivityType.Listening,
+                    details: `${track.title.slice(0, 127)}`,
+                    state: `by ${track.author.slice(0, 127)}`,
+                    largeImageKey: track.thumbnail?.startsWith('http') ? track.thumbnail : 'icon',
+                    largeImageText: `V5.3.13 | Q: ${queue.songs.length}`.slice(0, 127)
+                }).catch(() => null);
+            } catch (e) {
+                console.error("[Presence Error] Internal:", e.message);
+            }
         };
 
         if (interaction) {
