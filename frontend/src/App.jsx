@@ -174,19 +174,22 @@ function App() {
       await discordSdkRef.current.commands.setActivity({
         activity: {
           name: "AH Music",
-          type: 2, // Listening to
+          type: 0, // Playing (more reliable for invite embeds)
           details: track.title.slice(0, 127),
           state: `by ${track.author}`.slice(0, 127),
           assets: {
             large_image: track.thumbnail || "https://cdn.discordapp.com/embed/avatars/0.png",
-            large_text: `V${systemStats?.version || '5.3.1'} // Q: ${queue.length}`
+            large_text: `${formatTime(currentTime)} / ${formatTime(track.totalDurationMs || track.duration)} // NEURAL_STREAM`.slice(0, 127)
           },
           timestamps: {
             start: Date.now() - playbackMs
           },
           party: {
              id: discordSdkRef.current.instanceId,
-             size: [1, 10] // Show activity as active
+             size: [1, 10]
+          },
+          secrets: {
+             join: discordSdkRef.current.instanceId // Enable "Join" button
           }
         }
       });

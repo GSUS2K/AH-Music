@@ -351,17 +351,17 @@ module.exports = {
 
         player.play(resource);
 
-        // --- DYNAMIC PRESENCE (V5.3.3) ---
+        // --- DYNAMIC PRESENCE (V5.3.4) ---
         const updatePresence = (clientObj, currentMs = 0) => {
             if (!clientObj?.user) return;
-            const timeStr = currentMs > 0 ? `[${Math.floor(currentMs/60000)}:${Math.floor((currentMs%60000)/1000).toString().padStart(2,'0')}] ` : '';
+            const progressStr = `${Math.floor(currentMs/60000)}:${Math.floor((currentMs%60000)/1000).toString().padStart(2,'0')} / ${durationStr}`;
             clientObj.user.setActivity({
                 name: 'AH Music',
-                type: ActivityType.Listening,
+                type: ActivityType.Playing, // Sync to Type 0
                 details: `${track.title.slice(0, 127)}`,
                 state: `by ${track.author.slice(0, 127)}`,
                 largeImageKey: track.thumbnail?.startsWith('http') ? track.thumbnail : 'icon',
-                largeImageText: `${timeStr}V${version} | Q: ${queue.songs.length}`.slice(0, 127)
+                largeImageText: `${progressStr} // NEURAL_STREAM`.slice(0, 127)
             });
         };
 
