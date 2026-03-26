@@ -118,10 +118,11 @@ function App() {
       setQueue(serverSongs);
       
       if (serverSongs.length > 0) {
-        // Sync local clock with server if drift > 500ms
-        const drift = Math.abs(currentTime - (resp.data.currentMs || 0));
-        if (drift > 500) {
-          setCurrentTime(resp.data.currentMs || 0);
+        // Sync local clock with server if drift > 1000ms (wider window to avoid jumping)
+        const serverMs = resp.data.currentMs || 0;
+        const drift = Math.abs(currentTime - serverMs);
+        if (drift > 1000 || currentTime === 0) {
+          setCurrentTime(serverMs);
         }
       }
     } catch (err) {
@@ -203,6 +204,12 @@ function App() {
   };
 
   useEffect(() => {
+    // Reset clock and title tracking when track changes
+    if (currentTrack?.title !== currentTrackTitle) {
+      setCurrentTime(0);
+      setCurrentTrackTitle(currentTrack?.title || "");
+    }
+
     if (currentTrack?.syncedLyrics) {
         setLyrics(currentTrack.syncedLyrics.lyrics || []);
     } else if (currentTrack?.title) {

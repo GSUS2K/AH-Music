@@ -121,12 +121,17 @@ apiRouter.post('/log', (req, res) => {
 apiRouter.get('/queue/:guildId', (req, res) => {
     const guildId = req.params.guildId;
     const queue = client.queues.get(guildId);
-    if (!queue) return res.status(404).json({ songs: [], isPlaying: false });
+    if (!queue) return res.status(404).json({ songs: [], isPlaying: false, currentMs: 0 });
+    
+    // Extract current playback duration from the active player resource
+    const currentMs = queue.connection?.state?.subscription?.player?.state?.resource?.playbackDuration || 0;
+    
     res.json({
         songs: queue.songs,
         isPlaying: queue.player?.state?.status === 'playing',
         voiceChannel: queue.voiceChannel?.name || 'Voice',
-        lyricOffsetMs: queue.lyricOffsetMs || 0
+        lyricOffsetMs: queue.lyricOffsetMs || 0,
+        currentMs: currentMs
     });
 });
 
