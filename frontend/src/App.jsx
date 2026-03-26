@@ -82,6 +82,7 @@ function App() {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [uptime, setUptime] = useState("00:00:00");
   const [isLyricsExpanded, setIsLyricsExpanded] = useState(false);
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const expandedContainerRef = useRef(null);
   const expandedActiveRef = useRef(null);
 
@@ -310,7 +311,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.7'} // ATMOSPHERE_RESTORED</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.8'} // HUD_MODULAR</span>
              </div>
           </div>
           
@@ -330,10 +331,39 @@ function App() {
                 <span className="text-[8px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">NODE_UPTIME</span>
                 <span className="text-[10px] font-mono text-brand-accent font-black tracking-tighter">{uptime}</span>
              </div>
-             <div className="flex items-center gap-1.5 opacity-50">
-                <div className="w-1 h-3 bg-brand-accent rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
-                <div className="w-1 h-5 bg-brand-accent rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                <div className="w-1 h-3 bg-brand-accent rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+             
+             {/* MODULAR STATS TOGGLE */}
+             <div className="flex items-center gap-3 ml-2 border-l border-white/10 pl-4">
+                <button 
+                  onClick={() => setIsStatsExpanded(!isStatsExpanded)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all border ${isStatsExpanded ? 'bg-brand-accent/10 border-brand-accent/30' : 'bg-white/5 border-white/10 hover:border-brand-accent/50 group'}`}
+                >
+                  <Activity size={12} className={isStatsExpanded ? 'text-brand-accent animate-pulse' : 'text-brand-text-dim group-hover:text-brand-accent'} />
+                  <span className={`text-[9px] font-black uppercase tracking-widest ${isStatsExpanded ? 'text-brand-accent' : 'text-brand-text-dim'}`}>
+                    {isStatsExpanded ? 'Live HUD' : 'Stats'}
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {isStatsExpanded && (
+                    <motion.div 
+                      initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                      className="flex items-center gap-4 py-1.5 px-4 bg-white/[0.03] border border-white/5 rounded-xl"
+                    >
+                      <div className="flex flex-col">
+                         <div className="text-[7px] font-mono text-brand-text-dim uppercase tracking-tighter leading-none mb-1">CPU</div>
+                         <div className="text-[10px] font-black font-mono text-brand-accent leading-none">{systemStats?.load || '0.00'}</div>
+                      </div>
+                      <div className="w-[1px] h-3 bg-white/10" />
+                      <div className="flex flex-col">
+                         <div className="text-[7px] font-mono text-brand-text-dim uppercase tracking-tighter leading-none mb-1">MEM</div>
+                         <div className="text-[10px] font-black font-mono text-brand-accent leading-none">{systemStats?.mem?.percent ? `${systemStats.mem.percent}%` : '0%'}</div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
              </div>
           </div>
         </div>
@@ -380,23 +410,6 @@ function App() {
           </div>
         </div>
 
-        {/* INTEGRATED HUD: Moved from floating to header next to user */}
-        <div className="hidden xl:flex items-center gap-6 glass-card px-6 py-2 bg-white/[0.03] border-white/5 pointer-events-none opacity-40">
-            <div className="flex flex-col">
-               <div className="flex items-center gap-2 text-[8px] font-mono text-brand-text-dim uppercase tracking-tighter mb-0.5"><Cpu size={10} className="text-brand-accent" /> SYNAPSE</div>
-               <div className="text-[10px] font-black font-mono text-brand-accent tracking-tighter">{systemStats?.load || '0.00'}</div>
-            </div>
-            <div className="w-[1px] h-4 bg-white/10" />
-            <div className="flex flex-col">
-               <div className="flex items-center gap-2 text-[8px] font-mono text-brand-text-dim uppercase tracking-tighter mb-0.5"><HardDrive size={10} className="text-brand-accent" /> MEM</div>
-               <div className="text-[11px] font-black font-mono text-brand-accent tracking-tighter">{systemStats?.mem?.percent ? `${systemStats.mem.percent}%` : '0%'}</div>
-            </div>
-            <div className="w-[1px] h-4 bg-white/10" />
-            <div className="flex flex-col">
-               <div className="flex items-center gap-2 text-[8px] font-mono text-brand-text-dim uppercase tracking-tighter mb-0.5"><Wifi size={10} className="text-green-500/50" /> LINK</div>
-               <div className="text-[11px] font-black font-mono text-green-400 tracking-tighter uppercase">OK</div>
-            </div>
-        </div>
       </header>
 
 
