@@ -192,7 +192,7 @@ function App() {
           state: `by ${track.author}`.slice(0, 127),
           assets: {
             large_image: track.thumbnail || "https://cdn.discordapp.com/embed/avatars/0.png",
-            large_text: `${formatTime(currentTime)} / ${formatTime(track.totalDurationMs || track.duration)} // NEURAL_STREAM`.slice(0, 127)
+            large_text: `V5.3.11 // Q: ${queue.length}`.slice(0, 127)
           },
           timestamps: {
             start: Date.now() - playbackMs
@@ -200,9 +200,6 @@ function App() {
           party: {
              id: discordSdkRef.current.instanceId,
              size: [1, 10]
-          },
-          secrets: {
-             join: discordSdkRef.current.instanceId // Enable "Join" button
           }
         }
       });

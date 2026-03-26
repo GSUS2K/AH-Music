@@ -361,7 +361,7 @@ module.exports = {
                 details: `${track.title.slice(0, 127)}`,
                 state: `by ${track.author.slice(0, 127)}`,
                 largeImageKey: track.thumbnail?.startsWith('http') ? track.thumbnail : 'icon',
-                largeImageText: `${progressStr} // NEURAL_STREAM`.slice(0, 127)
+                largeImageText: `V5.3.11 | Q: ${queue.songs.length}`.slice(0, 127)
             });
         };
 
