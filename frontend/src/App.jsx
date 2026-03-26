@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, Search, Plus, Loader2, ListMusic, Music, Globe, User, BookOpen, Trash2, Rewind, FastForward, ExternalLink, ChevronLeft, ChevronRight, Zap, X, Cpu, HardDrive, Activity } from 'lucide-react';
+import { Play, Pause, SkipForward, Search, Plus, Loader2, ListMusic, Music, Globe, User, BookOpen, Trash2, Rewind, FastForward, ExternalLink, ChevronLeft, ChevronRight, Zap, X, Cpu, HardDrive, Activity, Radio, Signal, Wifi, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { setupDiscordSdk } from './discord';
 import axios from 'axios';
@@ -44,6 +44,7 @@ function App() {
   const [lastAdded, setLastAdded] = useState(null);
   const [currentTrackTitle, setCurrentTrackTitle] = useState("");
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [uptime, setUptime] = useState("00:00:00");
 
   const getProxyUrl = (url) => url ? `${API_BASE}/api/proxy?url=${encodeURIComponent(url)}` : null;
 
@@ -71,7 +72,17 @@ function App() {
     initDiscord();
     fetchSystemStats();
     const statsInterval = setInterval(fetchSystemStats, 10000);
-    return () => { clearInterval(pollInterval); clearInterval(statsInterval); };
+
+    const uptimeInterval = setInterval(() => {
+      const now = new Date();
+      setUptime(now.toTimeString().split(' ')[0]);
+    }, 1000);
+
+    return () => { 
+      clearInterval(pollInterval); 
+      clearInterval(statsInterval); 
+      clearInterval(uptimeInterval);
+    };
   }, []);
 
   const fetchQueue = async (guildId) => {
@@ -150,7 +161,7 @@ function App() {
   const handleControl = async (action) => {
     const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
     try { 
-      if (action === 'clear' || action === 'stop') setQueue([]); // Immediate UI feedback
+      if (action === 'clear' || action === 'stop') setQueue([]); 
       await axios.post(`${API_BASE}/api/control/${guildId}`, { action }); 
       fetchQueue(guildId); 
     } catch (err) {}
@@ -210,59 +221,82 @@ function App() {
          <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-brand-accent/10 blur-[80px] rounded-full animate-pulse-glow" style={{ animationDelay: '2s' }} />
       </div>
 
-      <header className="fixed top-0 left-0 right-0 h-16 border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-3xl z-50 px-4 flex items-center">
-        {/* SLOTTED HEADER TO PREVENT OVERLAPS */}
-        <div className="w-[180px] shrink-0 flex items-center gap-3">
-          <div className="w-9 h-9 glass-card flex items-center justify-center border-brand-accent/30">
-            <Zap className="text-brand-accent" size={18} fill="currentColor" />
+      <header className="fixed top-0 left-0 right-0 h-16 border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-3xl z-50 px-4 flex items-center justify-between">
+        {/* LEFT: NEURAL CORE */}
+        <div className="flex items-center gap-6 min-w-[240px]">
+          <div className="flex items-center gap-3">
+             <div className="w-9 h-9 glass-card flex items-center justify-center border-brand-accent/30 relative">
+               <Zap className="text-brand-accent" size={18} fill="currentColor" />
+               <div className="absolute -top-1 -right-1 w-2 h-2 bg-brand-accent rounded-full animate-ping" />
+             </div>
+             <div className="flex flex-col">
+               <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
+               <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold">V4.8 // CORE_ACTIVE</span>
+             </div>
           </div>
-          <div className="flex flex-col">
-            <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-            <span className="text-[10px] text-brand-accent font-mono tracking-tighter uppercase opacity-50">V4.8</span>
+          
+          <div className="hidden lg:flex items-center gap-4 pl-6 border-l border-white/5 h-8">
+             <div className="flex flex-col">
+                <span className="text-[8px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">NODE_UPTIME</span>
+                <span className="text-[10px] font-mono text-brand-accent font-black tracking-tighter">{uptime}</span>
+             </div>
+             <div className="flex items-center gap-1.5 opacity-50">
+                <div className="w-1 h-3 bg-brand-accent rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+                <div className="w-1 h-5 bg-brand-accent rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                <div className="w-1 h-3 bg-brand-accent rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+             </div>
           </div>
         </div>
 
-        <div className="flex-1 flex justify-center px-4">
-          <form onSubmit={handleSearch} className="relative w-full max-w-[500px] group">
+        {/* CENTER: NEURAL SEARCH */}
+        <div className="flex-1 flex justify-center max-w-[600px] px-8">
+          <form onSubmit={handleSearch} className="relative w-full group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-text-dim group-focus-within:text-brand-accent z-10 transition-colors" size={18} />
             <input 
               type="text" 
               placeholder="Search neural index..." 
-              className="w-full bg-white/5 border border-white/10 rounded-full pl-14 pr-10 h-11 text-sm outline-none focus:border-brand-accent/50 focus:bg-white/[0.08] transition-all"
+              className="w-full bg-white/5 border border-white/10 rounded-full pl-14 pr-10 h-11 text-sm outline-none focus:border-brand-accent/50 focus:bg-brand-accent/[0.03] transition-all"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            {isSearching && <Loader2 className="absolute right-5 top-1/2 -translate-y-1/2 animate-spin text-brand-accent" size={16} />}
+            {isSearching && <div className="absolute right-5 top-1/2 -translate-y-1/2"><Loader2 className="animate-spin text-brand-accent" size={16} /></div>}
           </form>
         </div>
 
-        <div className="w-[180px] shrink-0 flex items-center justify-end gap-4">
-          <div className="flex flex-col items-end leading-none">
-             <div className="text-[11px] font-black uppercase text-white tracking-widest leading-none mb-1">{auth?.user?.username || 'GUEST'}</div>
-             <div className="text-[8px] font-mono text-brand-accent uppercase tracking-tighter opacity-70">{voiceChannel}</div>
+        {/* RIGHT: USER BIO + VOICE NODE */}
+        <div className="flex items-center justify-end gap-6 min-w-[240px]">
+          <div className="hidden sm:flex flex-col items-end leading-none gap-2 pr-6 border-r border-white/5 h-8 justify-center">
+             <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                <span className="text-[10px] font-black uppercase text-white tracking-widest">{auth?.user?.username || 'GUEST'}</span>
+             </div>
+             <div className="flex items-center gap-1">
+                <Signal size={10} className="text-brand-accent" />
+                <span className="text-[8px] font-mono text-brand-accent uppercase tracking-tighter font-bold">{voiceChannel}</span>
+             </div>
           </div>
-          <div className="w-10 h-10 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden shrink-0">
-            <User size={20} className="text-brand-text-dim" />
+          <div className="w-10 h-10 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden shrink-0 group hover:border-brand-accent transition-colors">
+            <User size={20} className="text-brand-text-dim group-hover:text-brand-accent" />
           </div>
         </div>
       </header>
 
-      {/* Floating Telemetry Hub (Restored & Sleek) */}
+      {/* Floating Telemetry Hub (The "Neural Link") */}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-2">
-         <div className="glass-card p-3 px-5 flex items-center gap-6 border-brand-accent/20 bg-brand-dark/80 backdrop-blur-2xl">
+         <div className="glass-card p-3 px-5 flex items-center gap-6 border-brand-accent/20 bg-brand-dark/80 backdrop-blur-2xl group cursor-help">
             <div className="flex flex-col">
                <div className="flex items-center gap-2 text-[9px] font-mono text-brand-text-dim uppercase tracking-tighter mb-1"><Cpu size={10} className="text-brand-accent" /> SYNAPSE</div>
-               <div className="text-[12px] font-black font-mono text-brand-accent">{systemStats?.load || '0%'}</div>
+               <div className="text-[12px] font-black font-mono text-brand-accent tracking-tighter">{systemStats?.load || '0.00'}</div>
             </div>
             <div className="w-[1px] h-6 bg-white/10" />
             <div className="flex flex-col">
                <div className="flex items-center gap-2 text-[9px] font-mono text-brand-text-dim uppercase tracking-tighter mb-1"><HardDrive size={10} className="text-brand-accent" /> MEM_ALLOC</div>
-               <div className="text-[12px] font-black font-mono text-brand-accent">{systemStats?.mem?.percent ? `${systemStats.mem.percent}%` : '0%'}</div>
+               <div className="text-[12px] font-black font-mono text-brand-accent tracking-tighter">{systemStats?.mem?.percent ? `${systemStats.mem.percent}%` : '0%'}</div>
             </div>
             <div className="w-[1px] h-6 bg-white/10" />
             <div className="flex flex-col">
-               <div className="flex items-center gap-2 text-[9px] font-mono text-brand-text-dim uppercase tracking-tighter mb-1"><Activity size={10} className="text-brand-accent" /> LINK</div>
-               <div className="text-[12px] font-black font-mono text-brand-accent text-green-400">OK</div>
+               <div className="flex items-center gap-2 text-[9px] font-mono text-brand-text-dim uppercase tracking-tighter mb-1"><Wifi size={10} className="group-hover:text-green-400 transition-colors" /> LINK</div>
+               <div className="text-[12px] font-black font-mono text-green-400 tracking-tighter uppercase">OK</div>
             </div>
          </div>
       </div>
@@ -293,7 +327,10 @@ function App() {
                 </div>
 
                 <div className="flex-1 flex flex-col justify-center min-w-0 text-center sm:text-left pt-4 sm:pt-0">
-                  <div className="label-caps mb-3 text-brand-accent/50 text-[10px]">Signal Output // Active</div>
+                  <div className="label-caps mb-3 text-brand-accent/50 text-[10px] flex items-center gap-2 justify-center sm:justify-start">
+                     <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-ping" />
+                     Signal Output // Active
+                  </div>
                   <h1 className="text-3xl lg:text-5xl font-black tracking-tighter mb-2 truncate leading-none uppercase">
                     {currentTrack.title}
                   </h1>
@@ -338,7 +375,7 @@ function App() {
             <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 <BookOpen size={18} className="text-brand-accent" />
-                <span className="label-caps mb-0 text-[10px] tracking-widest uppercase">Subtitles // Active</span>
+                <span className="label-caps mb-0 text-[10px] tracking-widest uppercase">Subtitles // {isPlaying ? 'DECODING' : 'IDLE'}</span>
               </div>
               <div className="flex items-center gap-4">
                  <div className="flex items-center glass-card p-1 rounded-xl bg-black/20 border-white/5">
@@ -358,16 +395,22 @@ function App() {
                   {lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIndex;
                     return (
-                      <div key={idx} ref={isActive ? activeLyricRef : null} className={`text-2xl sm:text-3xl lg:text-4xl font-black transition-all duration-700 transform leading-tight ${isActive ? 'text-white translate-x-3 scale-110 opacity-100' : 'text-white/5 blur-[2px] transition-all'}`}>
+                      <div key={idx} ref={isActive ? activeLyricRef : null} className={`text-2xl sm:text-3xl lg:text-4xl font-black transition-all duration-700 transform leading-tight ${isActive ? 'text-white translate-x-3 scale-110 opacity-100' : 'text-white/10 blur-[2px] transition-all'}`}>
                         {line.text}
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center opacity-10 gap-6">
-                   <Music size={64} strokeWidth={1} />
-                   <div className="text-sm font-black uppercase tracking-[0.4em]">Signal Idle</div>
+                <div className="h-full flex flex-col items-center justify-center text-center p-12">
+                   <div className="grid grid-cols-4 gap-4 w-64 opacity-10 mb-12">
+                      {[...Array(16)].map((_, i) => <div key={i} className="h-4 bg-brand-accent rounded-sm animate-pulse" style={{ animationDelay: `${i*0.1}s` }} />)}
+                   </div>
+                   <div className="flex flex-col items-center gap-4 opacity-20">
+                      <Signal size={48} className="text-brand-accent animate-pulse" />
+                      <div className="text-[12px] font-black uppercase tracking-[0.5em]">SIGNAL_STANDBY</div>
+                      <div className="text-[10px] font-mono uppercase tracking-widest opacity-50">awaiting incoming stream decrypt...</div>
+                   </div>
                 </div>
               )}
             </div>
@@ -387,9 +430,9 @@ function App() {
                <span className="text-[10px] font-mono font-black text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded-full">{Math.max(0, queue.length - 1)}</span>
             </div>
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 no-scrollbar pb-12">
-              <AnimatePresence>
+              <AnimatePresence mode="popLayout">
                 {queue.length > 1 ? queue.slice(1).map((track, idx) => (
-                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} key={`${track.id}-${idx}`} className="group glass-card p-3 flex items-center gap-4 hover:border-brand-accent/30 bg-white/[0.01] transition-all border-white/5">
+                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} key={`${track.id}-${idx}`} className="group glass-card p-3 flex items-center gap-4 hover:border-brand-accent/30 bg-white/[0.01] transition-all border-white/5">
                      <img src={getProxyUrl(track.thumbnail)} className="w-12 h-12 rounded-xl object-cover" alt="" />
                      <div className="flex-1 min-w-0">
                        <div className="text-[12px] font-black truncate group-hover:text-brand-accent transition-colors uppercase tracking-widest">{track.title}</div>

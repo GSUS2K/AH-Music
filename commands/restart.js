@@ -38,7 +38,8 @@ module.exports = {
             const remoteHead = revs[revs.length - 1];
 
             if (localHead === remoteHead) {
-                return interaction.followUp({ content: '✅ **Already up-to-date.** Restarting for stability...', ephemeral: true }).then(() => {
+                interaction.followUp({ content: '✅ **Code already up-to-date.** Rebuilding neural-activity for consistency...', ephemeral: true });
+                return exec('npm run build-activity', (buildErr) => {
                     exec(`pm2 restart ${pm2Name}`);
                 });
             }

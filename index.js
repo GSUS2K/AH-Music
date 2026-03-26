@@ -391,24 +391,23 @@ client.once('ready', async () => {
     const commandsData = client.commands.map(c => c.data.toJSON ? c.data.toJSON() : c.data);
     console.log(`[Startup] Loaded ${client.commands.size} commands: ${client.commands.map(c => c.data.name).join(', ')}`);
     
+    console.log(`[Startup] Initializing registration for ${commandsData.length} commands: ${commandsData.map(c => c.name).join(', ')}`);
+    
     try {
-        // 1. Register Global (Takes up to 1 hour to propagate)
+        // 1. Register Global (The core way)
         await client.application.commands.set(commandsData);
-        console.log('Successfully registered global slash commands!');
+        console.log('[Sync] Global neural-commands successfully cached.');
 
-        // 2. Register to all current guilds (Instant updates)
+        // 2. Register to all current guilds for INSTANT feedback
         const guilds = await client.guilds.fetch();
         for (const [id, guild] of guilds) {
             const fullGuild = await guild.fetch();
-            // CLEAR first to force refresh
-            await fullGuild.commands.set([]);
-            // Then SET
-            await fullGuild.commands.set(commandsData);
-            console.log(`[Sync] Forced command refresh for Guild: ${fullGuild.name} (${id})`);
+            await fullGuild.commands.set(commandsData).catch(e => console.error(`[Sync] Fail for ${fullGuild.name}:`, e.message));
+            console.log(`[Sync] Forced instant-refresh for Guild: ${fullGuild.name}`);
         }
-        console.log(`Successfully registered commands to ${guilds.size} guilds for instant indexing.`);
+        console.log(`[Sync] Neural-indexing complete across ${guilds.size} nodes.`);
     } catch (error) {
-        console.error('Error during command registration:', error);
+        console.error('[Sync] Neural Registry Failure:', error);
     }
 });
 
