@@ -292,7 +292,7 @@ function App() {
 
   return (
     <div className="h-screen w-screen bg-mesh bg-fixed selection:bg-brand-accent selection:text-brand-dark flex flex-col overflow-hidden relative">
-      <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+
       {/* Background Glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-brand-accent/5 blur-[100px] rounded-full animate-pulse-glow" />
@@ -310,7 +310,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.6'} // VISUAL_EQUILIBRIUM</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.7'} // ATMOSPHERE_RESTORED</span>
              </div>
           </div>
           

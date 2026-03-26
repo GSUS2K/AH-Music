@@ -30,8 +30,8 @@
   .bg-mesh {
     background-color: #050505;
     background-image: 
-      radial-gradient(at 0% 0%, hsla(166,100%,31%,0.08) 0, transparent 40%), 
-      radial-gradient(at 100% 100%, hsla(166,100%,31%,0.05) 0, transparent 40%);
+      radial-gradient(at 0% 0%, hsla(166,100%,31%,0.12) 0, transparent 50%), 
+      radial-gradient(at 100% 100%, hsla(166,100%,31%,0.08) 0, transparent 50%);
   }
 
   .glass-card {
