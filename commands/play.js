@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActivityType } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, entersState, VoiceConnectionStatus, AudioPlayerStatus } = require('@discordjs/voice');
 const youtubedl = require('youtube-dl-exec');
 const fs = require('fs');
@@ -351,11 +351,24 @@ module.exports = {
 
         player.play(resource);
 
-        // --- DYNAMIC PRESENCE (V4.9.9.2) ---
-        if (interaction && interaction.client.user) {
-            interaction.client.user.setActivity(`${track.title}`, { type: 2 }); // Listening to...
-        } else if (queue.textChannel && queue.textChannel.client.user) {
-            queue.textChannel.client.user.setActivity(`${track.title}`, { type: 2 });
+        // --- DYNAMIC PRESENCE (V5.2.8) ---
+        const updatePresence = (clientObj, currentMs = 0) => {
+            if (!clientObj?.user) return;
+            const timeStr = currentMs > 0 ? `[${Math.floor(currentMs/60000)}:${Math.floor((currentMs%60000)/1000).toString().padStart(2,'0')}] ` : '';
+            clientObj.user.setActivity({
+                name: 'AH Music',
+                type: ActivityType.Listening,
+                details: `${track.title.slice(0, 127)}`,
+                state: `by ${track.author.slice(0, 127)}`,
+                largeImageKey: 'icon', // Fallback for various clients
+                largeImageText: `${timeStr}V${version} | Q: ${queue.songs.length}`.slice(0, 127)
+            });
+        };
+
+        if (interaction) {
+            updatePresence(interaction.client);
+        } else if (queue.textChannel) {
+            updatePresence(queue.textChannel.client);
         }
 
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -476,10 +489,7 @@ module.exports = {
 
                     // Periodic Presence Refresh (Time Sync)
                     const clientObj = interaction ? interaction.client : (queue.textChannel ? queue.textChannel.client : null);
-                    if (clientObj && clientObj.user) {
-                        const timeStr = `${Math.floor(currentMs/60000)}:${Math.floor((currentMs%60000)/1000).toString().padStart(2,'0')}`;
-                        clientObj.user.setActivity(`${track.title} (${timeStr}) | V${version}`, { type: 2 });
-                    }
+                    if (clientObj) updatePresence(clientObj, currentMs);
 
                     try {
                         await replyMessage.edit({ embeds: [generateEmbed(currentMs)] });
