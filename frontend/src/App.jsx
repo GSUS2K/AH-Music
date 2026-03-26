@@ -114,13 +114,11 @@ function App() {
       await discordSdkRef.current.commands.setActivity({
         activity: {
           type: 2, // Listening to
-          details: "Listening on AH Music",
-          state: `${track.title} - ${track.author}`,
+          details: track.title,
+          state: `by ${track.author}`,
           assets: {
             large_image: track.thumbnail || "https://cdn.discordapp.com/embed/avatars/0.png",
-            large_text: track.title,
-            small_image: `https://aftrhrsmsc.duckdns.org/activity/logo.png`,
-            small_text: "AH Music Stream"
+            large_text: track.title
           },
           timestamps: {
             start: Date.now()
@@ -275,7 +273,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.0.5'} // SYNC_HUD_GHOST</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.0.6'} // SYNC_STATUS</span>
              </div>
           </div>
           
