@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-dark: #0a0a0a;
+  --color-brand-dark: #050505;
   --color-brand-surface: rgba(255, 255, 255, 0.05);
   --color-brand-accent: #00ffbf;
   --color-brand-accent-hover: #00e6ac;
@@ -28,10 +28,10 @@
 
 @layer utilities {
   .bg-mesh {
-    background-color: #0a0a0a;
+    background-color: #050505;
     background-image: 
-      radial-gradient(at 0% 0%, hsla(166,100%,31%,0.15) 0, transparent 50%), 
-      radial-gradient(at 100% 100%, hsla(166,100%,31%,0.1) 0, transparent 50%);
+      radial-gradient(at 0% 0%, hsla(166,100%,31%,0.08) 0, transparent 40%), 
+      radial-gradient(at 100% 100%, hsla(166,100%,31%,0.05) 0, transparent 40%);
   }
 
   .glass-card {

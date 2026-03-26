@@ -309,7 +309,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.0'} // SYNC_RESILIENCE</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.1'} // COLLABRIX_THEME</span>
              </div>
           </div>
           
@@ -462,7 +462,7 @@ function App() {
           </div>
 
           {/* LYRICS PANEL */}
-          <div className="flex-1 glass-card overflow-hidden flex flex-col min-h-[400px] lg:min-h-0 bg-white/[0.01]">
+          <div className="flex-1 glass-card overflow-hidden flex flex-col min-h-[400px] lg:min-h-0 bg-white/[0.03]">
             <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 <BookOpen size={18} className="text-brand-accent" />
@@ -534,7 +534,7 @@ function App() {
         <div className="lg:col-span-4 flex flex-col gap-6 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden min-w-0 pt-6 lg:pt-0">
           
           {/* QUEUE */}
-          <div className="lg:flex-[0.45] glass-card flex flex-col overflow-hidden bg-white/[0.01]">
+          <div className="lg:flex-[0.45] glass-card flex flex-col overflow-hidden bg-white/[0.03]">
             <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
                <div className="flex items-center gap-3">
                  <ListMusic size={18} className="text-brand-accent" />
@@ -563,7 +563,7 @@ function App() {
           </div>
 
           {/* DISCOVERY */}
-          <div className="lg:flex-[0.55] glass-card flex flex-col overflow-hidden bg-white/[0.01]">
+          <div className="lg:flex-[0.55] glass-card flex flex-col overflow-hidden bg-white/[0.03]">
             <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 <Globe size={18} className="text-brand-accent" />
