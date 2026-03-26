@@ -13,10 +13,6 @@ const getApiBase = () => {
 };
 const API_BASE = getApiBase();
 
-const remoteLog = (msg, err = '') => {
-  axios.post(`${API_BASE}/api/log`, { message: msg, error: err }).catch(() => {});
-};
-
 const formatTime = (ms) => {
   if (isNaN(ms) || ms < 0) return "0:00";
   const totalSeconds = Math.floor(ms / 1000);
@@ -153,7 +149,11 @@ function App() {
 
   const handleControl = async (action) => {
     const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
-    try { await axios.post(`${API_BASE}/api/control/${guildId}`, { action }); fetchQueue(guildId); } catch (err) {}
+    try { 
+      if (action === 'clear' || action === 'stop') setQueue([]); // Immediate UI feedback
+      await axios.post(`${API_BASE}/api/control/${guildId}`, { action }); 
+      fetchQueue(guildId); 
+    } catch (err) {}
   };
 
   const handleRemove = async (index) => {
@@ -194,11 +194,11 @@ function App() {
 
   if (loading) return (
     <div className="h-screen w-full bg-[#0a0a0a] flex flex-col items-center justify-center gap-6 p-6 text-center">
-      <div className="relative scale-125">
-        <Loader2 className="animate-spin text-brand-accent" size={56} />
+      <div className="relative">
+        <Loader2 className="animate-spin text-brand-accent" size={48} />
         <div className="absolute inset-0 blur-xl bg-brand-accent/20 animate-pulse" />
       </div>
-      <div className="label-caps animate-pulse text-lg">Initializing Neural Stream</div>
+      <div className="label-caps animate-pulse text-sm">Synchronizing Stream</div>
     </div>
   );
 
@@ -206,62 +206,48 @@ function App() {
     <div className="min-h-screen bg-mesh text-white selection:bg-brand-accent/30 selection:text-brand-accent overflow-x-hidden flex flex-col">
       {/* Background Glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-         <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] lg:w-[40%] lg:h-[40%] bg-brand-accent/5 blur-[120px] rounded-full animate-pulse-glow" />
-         <div className="absolute bottom-[-5%] right-[-5%] w-[50%] h-[50%] lg:w-[30%] lg:h-[30%] bg-brand-accent/10 blur-[100px] rounded-full animate-pulse-glow" style={{ animationDelay: '2s' }} />
+         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-brand-accent/5 blur-[100px] rounded-full animate-pulse-glow" />
+         <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-brand-accent/10 blur-[80px] rounded-full animate-pulse-glow" style={{ animationDelay: '2s' }} />
       </div>
 
-      <header className="fixed top-0 left-0 right-0 h-16 border-b border-brand-border bg-brand-dark/90 backdrop-blur-xl z-50 px-4 lg:px-8 flex items-center gap-4 lg:gap-12">
-        {/* LOGO COLUMN */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-10 h-10 glass-card flex items-center justify-center group-hover:border-brand-accent transition-all duration-500 hover:shadow-neon">
-            <Zap className="text-brand-accent" size={20} fill="currentColor" />
+      <header className="fixed top-0 left-0 right-0 h-16 border-b border-brand-border bg-brand-dark/95 backdrop-blur-xl z-50 px-4 lg:px-6 flex items-center justify-between">
+        {/* LEFT: LOGO */}
+        <div className="flex items-center gap-3 group">
+          <div className="w-9 h-9 glass-card flex items-center justify-center group-hover:border-brand-accent transition-all duration-300">
+            <Zap className="text-brand-accent" size={18} fill="currentColor" />
           </div>
-          <div className="hidden lg:flex flex-col">
+          <div className="hidden sm:flex flex-col">
             <span className="font-black text-xs uppercase tracking-widest leading-none mb-0.5">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-            <span className="text-[10px] text-brand-text-dim font-mono tracking-tighter uppercase whitespace-nowrap">Neural-Ready // V4.5</span>
+            <span className="text-[9px] text-brand-text-dim font-mono tracking-tighter uppercase whitespace-nowrap">V4.6 // PREMIUM</span>
           </div>
         </div>
 
-        {/* SEARCH COLUMN (CENTER) */}
-        <div className="flex-1 max-w-2xl hidden md:block">
+        {/* CENTER: SEARCH */}
+        <div className="flex-1 max-w-xl mx-4 sm:mx-8">
           <form onSubmit={handleSearch} className="relative group">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-dim group-focus-within:text-brand-accent z-10">
-              <Search size={18} />
-            </div>
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-dim group-focus-within:text-brand-accent z-10" size={16} />
             <input 
               type="text" 
-              placeholder="Broadcasting search signals..." 
-              className="w-full input-mint pl-14 pr-12 h-11 bg-white/5 border-white/10"
+              placeholder="Search neural index..." 
+              className="w-full input-mint pl-10 pr-10 h-10 bg-white/5 border-white/10 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            {isSearching && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-brand-accent" size={18} />}
+            {isSearching && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-brand-accent" size={16} />}
           </form>
         </div>
 
-        {/* STATS & USER COLUMN (RIGHT) */}
-        <div className="flex items-center gap-4 lg:gap-8 shrink-0 ml-auto">
-          {/* Neural Flux Meter (CPU/RAM) */}
-          <div className="hidden xl:flex items-center gap-6 border-l border-white/10 h-10 pl-8">
-             <div className="flex flex-col items-end">
-                <div className="flex items-center gap-2 label-caps mb-0 text-[10px] whitespace-nowrap"><Cpu size={10} className="text-brand-accent" /> SYNAPSE LOAD</div>
-                <div className="font-mono text-[11px] font-black text-brand-accent">{systemStats?.load || '0%'}</div>
-             </div>
-             <div className="flex flex-col items-end">
-                <div className="flex items-center gap-2 label-caps mb-0 text-[10px] whitespace-nowrap"><HardDrive size={10} className="text-brand-accent" /> MEM_ALLOC</div>
-                <div className="font-mono text-[11px] font-black text-brand-accent">{systemStats?.mem?.percent ? `${systemStats.mem.percent}%` : '0%'}</div>
-             </div>
-          </div>
-
-          <button onClick={() => setIsMobileSearchOpen(true)} className="md:hidden w-10 h-10 glass-card flex items-center justify-center text-brand-text-dim"><Search size={20} /></button>
-
+        {/* RIGHT: USER INFO */}
+        <div className="flex items-center gap-4">
+          <button onClick={() => setIsMobileSearchOpen(true)} className="sm:hidden w-9 h-9 glass-card flex items-center justify-center text-brand-text-dim"><Search size={18} /></button>
+          
           <div className="flex items-center gap-3">
-             <div className="hidden md:flex flex-col items-end">
-                <div className="label-caps mb-0 text-white leading-none text-[11px] truncate max-w-[120px]">{auth?.user?.username || 'GUEST'}</div>
-                <div className="text-[9px] text-brand-accent font-mono uppercase tracking-[0.2em] truncate max-w-[100px]">{voiceChannel}</div>
+             <div className="hidden md:flex flex-col items-end leading-tight">
+                <div className="text-[11px] font-black uppercase text-white tracking-widest">{auth?.user?.username || 'GUEST'}</div>
+                <div className="text-[9px] font-mono text-brand-accent uppercase tracking-tighter">{voiceChannel}</div>
              </div>
-             <div className="w-10 h-10 rounded-full glass-card flex items-center justify-center p-0.5 border-brand-accent/20 overflow-hidden shrink-0">
-               <User size={22} className="text-brand-text-dim" />
+             <div className="w-10 h-10 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden shrink-0">
+               <User size={20} className="text-brand-text-dim" />
              </div>
           </div>
         </div>
@@ -270,200 +256,190 @@ function App() {
       {/* Mobile Search Overlay */}
       <AnimatePresence>
         {isMobileSearchOpen && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }}
-            className="fixed inset-0 bg-brand-dark/98 backdrop-blur-3xl z-[100] p-6 flex flex-col md:hidden"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-brand-dark/98 backdrop-blur-3xl z-[100] p-6 flex flex-col sm:hidden">
             <div className="flex items-center justify-between mb-8">
-               <div className="label-caps mb-0 text-lg">Query Broadcast</div>
-               <button onClick={() => setIsMobileSearchOpen(false)} className="text-brand-text-dim p-2"><X size={32} /></button>
+               <div className="label-caps mb-0 pt-2">Neural Scan</div>
+               <button onClick={() => setIsMobileSearchOpen(false)} className="text-brand-text-dim p-2"><X size={28} /></button>
             </div>
-            <form onSubmit={handleSearch} className="relative mb-8">
-               <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-accent" size={28} />
-               <input autoFocus type="text" placeholder="Scanning..." className="w-full bg-white/5 border border-white/10 rounded-2xl pl-16 h-20 text-2xl font-black outline-none focus:border-brand-accent transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <form onSubmit={handleSearch} className="relative">
+               <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-accent" size={24} />
+               <input autoFocus type="text" placeholder="Scanning..." className="w-full bg-white/5 border border-white/10 rounded-2xl pl-16 h-16 text-xl font-black outline-none" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </form>
-            <div className="label-caps opacity-30 mb-4 tracking-[0.5em]">Common Signals</div>
-            <div className="flex flex-wrap gap-4">
-               {['Sukoon', 'Bollywood', 'LoFi', 'Phonk'].map(t => (
-                 <button key={t} onClick={() => { setSearchQuery(t); handleSearch(); }} className="px-6 py-3 glass-card text-xs font-black uppercase hover:border-brand-accent">{t}</button>
-               ))}
-            </div>
-            <div className="mt-auto label-caps text-brand-accent/30 text-center">Transmission ID: {Math.random().toString(36).substring(7).toUpperCase()}</div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <main className="flex-1 mt-16 px-4 lg:px-8 py-6 lg:grid lg:grid-cols-12 gap-8 relative z-10 w-full pb-32 overflow-x-hidden">
+      <main className="flex-1 mt-16 px-4 lg:px-6 py-6 lg:grid lg:grid-cols-12 gap-6 relative z-10 w-full pb-32">
         
-        {/* LEFT COMPONENT */}
-        <div className="flex flex-col gap-8 lg:col-span-8 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden min-w-0">
+        {/* PLAYER & LYRICS */}
+        <div className="flex flex-col gap-6 lg:col-span-8 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden min-w-0">
           
-          {/* MASTER PLAYER */}
-          <div className="glass-card p-6 lg:p-12 flex flex-col sm:flex-row gap-10 lg:gap-14 relative overflow-hidden group shrink-0 shadow-[0_0_100px_rgba(0,0,0,0.5)]">
+          {/* PLAYER CARD */}
+          <div className="glass-card p-6 lg:p-10 flex flex-col sm:flex-row gap-8 lg:gap-10 relative overflow-hidden group shrink-0">
             {currentTrack && (
-              <div className="absolute inset-0 blur-3xl opacity-10 pointer-events-none group-hover:opacity-15 transition-opacity">
+              <div className="absolute inset-0 blur-3xl opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
                 <img src={getProxyUrl(currentTrack.thumbnail)} alt="" className="w-full h-full object-cover" />
               </div>
             )}
 
             {currentTrack ? (
               <>
-                <div className="w-full sm:w-72 lg:w-96 flex-shrink-0">
-                  <div className="relative aspect-square rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5 mx-auto sm:mx-0 max-w-[320px] sm:max-w-none hover:scale-[1.03] transition-all duration-700">
+                <div className="w-full sm:w-64 lg:w-80 flex-shrink-0">
+                  <div className="relative aspect-square rounded-[2rem] overflow-hidden shadow-2xl border border-white/5 mx-auto sm:mx-0 max-w-[280px] sm:max-w-none hover:scale-[1.02] transition-transform duration-500">
                     <img src={getProxyUrl(currentTrack.thumbnail)} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/80 via-transparent to-transparent opacity-70" />
-                    <div className="absolute bottom-8 left-8 flex gap-2 items-end h-12">
-                      {[...Array(12)].map((_, i) => <div key={i} className="visual-bar w-[5px]" style={{ animationDelay: `${i*0.1}s` }} />)}
+                    <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/60 via-transparent to-transparent opacity-60" />
+                    <div className="absolute bottom-6 left-6 flex gap-1.5 items-end h-8">
+                      {[...Array(10)].map((_, i) => <div key={i} className="visual-bar w-[4px]" style={{ animationDelay: `${i*0.1}s` }} />)}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex-1 flex flex-col justify-center min-w-0 text-center sm:text-left pt-4 sm:pt-0">
-                  <div className="label-caps mb-4 text-brand-accent/50 tracking-[0.4em]">Propagating Signal Stream</div>
-                  <h1 className="text-3xl sm:text-4xl lg:text-7xl font-black tracking-tight mb-2 truncate leading-tight overflow-hidden text-ellipsis whitespace-nowrap">
+                  <div className="label-caps mb-3 text-brand-accent/50 text-[10px]">Signal Output // High Fidelity</div>
+                  <h1 className="text-2xl sm:text-3xl lg:text-5xl font-black tracking-tight mb-2 truncate leading-tight overflow-hidden text-ellipsis whitespace-nowrap uppercase">
                     {currentTrack.title}
                   </h1>
-                  <p className="text-brand-accent text-xl lg:text-3xl font-black mb-10 lg:mb-16 truncate opacity-90 tracking-tighter">
+                  <p className="text-brand-accent text-lg lg:text-xl font-bold mb-8 lg:mb-12 truncate opacity-80 uppercase tracking-tighter">
                     {currentTrack.author}
                   </p>
 
-                  <div className="flex flex-col gap-4 mb-12 lg:mb-14">
-                    <input type="range" min="0" max={currentTrack.totalDurationMs || currentTrack.duration || 100} value={currentTime} onChange={(e) => setCurrentTime(parseFloat(e.target.value))} className="w-full accent-brand-accent cursor-pointer h-3 rounded-full" />
-                    <div className="flex justify-between text-xs lg:text-sm font-mono text-brand-text-dim tracking-widest font-black">
+                  <div className="flex flex-col gap-3 mb-10 lg:mb-12">
+                    <input type="range" min="0" max={currentTrack.totalDurationMs || currentTrack.duration || 100} value={currentTime} onChange={(e) => setCurrentTime(parseFloat(e.target.value))} className="w-full accent-brand-accent cursor-pointer h-2 rounded-full" />
+                    <div className="flex justify-between text-[11px] font-mono text-brand-text-dim tracking-widest font-black uppercase">
                        <span>{formatTime(currentTime)}</span>
-                       <span className="text-brand-accent opacity-50">{formatTime(currentTrack.totalDurationMs || currentTrack.duration || 0)}</span>
+                       <span>{formatTime(currentTrack.totalDurationMs || currentTrack.duration || 0)}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-center sm:justify-start gap-5 lg:gap-10">
-                    <button onClick={() => handleControl(isPlaying ? 'pause' : 'resume')} className="btn-mint w-24 h-24 lg:w-32 lg:h-32 flex items-center justify-center p-0 rounded-[2.5rem] lg:rounded-[3rem] shadow-neon-strong active:scale-95 transition-all">
-                      {isPlaying ? <Pause size={48} lg:size={64} fill="currentColor" /> : <Play size={48} lg:size={64} fill="currentColor" className="ml-2" />}
+                  <div className="flex items-center justify-center sm:justify-start gap-4 lg:gap-6">
+                    <button onClick={() => handleControl(isPlaying ? 'pause' : 'resume')} className="btn-mint w-16 h-16 lg:w-20 lg:h-20 flex items-center justify-center p-0 rounded-2xl lg:rounded-3xl shadow-neon-strong active:scale-95 transition-all">
+                      {isPlaying ? <Pause size={32} lg:size={40} fill="currentColor" /> : <Play size={32} lg:size={40} fill="currentColor" className="ml-1" />}
                     </button>
-                    <button onClick={() => handleControl('skip')} className="w-16 h-16 lg:w-20 lg:h-20 glass-card hover:border-brand-accent/50 hover:bg-brand-accent/5 transition-all flex items-center justify-center rounded-3xl active:scale-90">
-                      <SkipForward size={32} lg:size={40} />
+                    <button onClick={() => handleControl('skip')} className="w-12 h-12 lg:w-16 lg:h-16 glass-card hover:border-brand-accent/50 hover:bg-brand-accent/5 transition-all flex items-center justify-center rounded-2xl active:scale-90">
+                      <SkipForward size={24} lg:size={32} />
                     </button>
-                    <button onClick={() => handleControl('clear')} className="w-16 h-16 lg:w-20 lg:h-20 glass-card hover:border-red-500 hover:text-red-500 hover:bg-red-500/10 transition-all flex items-center justify-center rounded-3xl active:scale-90">
-                      <Trash2 size={28} lg:size={36} />
+                    <button onClick={() => handleControl('clear')} className="w-12 h-12 lg:w-16 lg:h-16 glass-card hover:border-red-500/50 hover:text-red-500 hover:bg-red-500/5 transition-all flex items-center justify-center rounded-2xl active:scale-90">
+                      <Trash2 size={24} lg:size={32} />
                     </button>
-                    <button onClick={() => currentTrack.actualUrl && discordSdkRef.current?.commands.openExternalLink({ url: currentTrack.actualUrl })} className="hidden sm:flex w-16 h-16 lg:w-20 lg:h-20 glass-card hover:border-brand-accent/50 hover:bg-brand-accent/5 transition-all items-center justify-center rounded-3xl active:scale-90">
-                      <ExternalLink size={28} lg:size={36} />
+                    <button onClick={() => currentTrack.actualUrl && discordSdkRef.current?.commands.openExternalLink({ url: currentTrack.actualUrl })} className="hidden sm:flex w-12 h-12 lg:w-16 lg:h-16 glass-card hover:border-brand-accent/50 hover:bg-brand-accent/5 transition-all items-center justify-center rounded-2xl active:scale-90">
+                      <ExternalLink size={20} lg:size={28} />
                     </button>
                   </div>
                 </div>
               </>
             ) : (
-              <div className="w-full h-80 lg:h-[600px] flex flex-col items-center justify-center gap-10 opacity-10">
-                <Music size={120} className="text-brand-text-dim animate-pulse" strokeWidth={0.5} />
-                <div className="label-caps text-3xl tracking-[0.8em]">Awaiting Data</div>
+              <div className="w-full h-64 lg:h-[400px] flex flex-col items-center justify-center gap-6 opacity-10">
+                <Music size={80} className="text-brand-text-dim animate-pulse" strokeWidth={1} />
+                <div className="label-caps text-xl tracking-[0.5em]">Network Standby</div>
               </div>
             )}
           </div>
 
-          {/* MASTER LYRICS */}
-          <div className="flex-1 glass-card overflow-hidden flex flex-col min-h-[500px] lg:min-h-0 border-brand-accent/10 shadow-[0_40px_100px_rgba(0,0,0,0.3)]">
-            <div className="p-6 lg:p-8 border-b border-brand-border flex items-center justify-between bg-white/[0.04]">
-              <div className="flex items-center gap-4">
-                <BookOpen size={24} className="text-brand-accent" />
-                <span className="label-caps mb-0 text-sm lg:text-base tracking-[0.3em]">Neural Subtitles</span>
+          {/* LYRICS PANEL */}
+          <div className="flex-1 glass-card overflow-hidden flex flex-col min-h-[400px] lg:min-h-0">
+            <div className="p-5 border-b border-brand-border flex items-center justify-between bg-white/[0.04]">
+              <div className="flex items-center gap-3">
+                <BookOpen size={18} className="text-brand-accent" />
+                <span className="label-caps mb-0 text-xs tracking-widest uppercase">Neural Subtitles</span>
               </div>
-              <div className="flex items-center gap-6">
-                 <div className="flex items-center glass-card p-1.5 rounded-2xl bg-black/40">
-                    <button onClick={() => handleSync(-500)} className="p-2 px-4 hover:text-brand-accent transition-colors"><ChevronLeft size={24} /></button>
-                    <span className="text-sm font-mono text-brand-accent font-black w-24 text-center">{lyricOffsetMs}ms</span>
-                    <button onClick={() => handleSync(500)} className="p-2 px-4 hover:text-brand-accent transition-colors"><ChevronRight size={24} /></button>
+              <div className="flex items-center gap-4">
+                 <div className="flex items-center glass-card p-1 rounded-xl bg-black/20">
+                    <button onClick={() => handleSync(-500)} className="p-2 hover:text-brand-accent"><ChevronLeft size={18} /></button>
+                    <span className="text-[10px] font-mono text-brand-accent font-black w-14 text-center">{lyricOffsetMs}ms</span>
+                    <button onClick={() => handleSync(500)} className="p-2 hover:text-brand-accent"><ChevronRight size={18} /></button>
                  </div>
-                 <button onClick={() => axios.post(`${API_BASE}/api/source/${auth.guild_id}`)} className="px-8 py-3.5 glass-card text-xs font-black hover:border-brand-accent hover:shadow-neon transition-all uppercase tracking-[0.2em] active:scale-95 bg-brand-accent/5">Rotate Hubs</button>
+                 <button onClick={() => axios.post(`${API_BASE}/api/source/${auth.guild_id}`)} className="px-5 py-2.5 glass-card text-[10px] font-black hover:border-brand-accent transition-all uppercase tracking-widest active:scale-95">Rotate</button>
               </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-12 lg:p-24 no-scrollbar scroll-smooth relative" ref={lyricsContainerRef} onWheel={() => setIsAutoScrollPaused(true)} onTouchStart={() => setIsAutoScrollPaused(true)}>
+            <div className="flex-1 overflow-y-auto p-10 lg:p-20 no-scrollbar scroll-smooth relative" ref={lyricsContainerRef} onWheel={() => setIsAutoScrollPaused(true)} onTouchStart={() => setIsAutoScrollPaused(true)}>
               {isLyricsLoading ? (
-                <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-brand-accent" size={64} /></div>
+                <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-brand-accent" size={48} /></div>
               ) : lyrics.length > 0 ? (
-                <div className="flex flex-col gap-12 lg:gap-20 pb-64 pt-64">
+                <div className="flex flex-col gap-10 lg:gap-14 pb-48 pt-48 text-center sm:text-left">
                   {lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIndex;
                     return (
-                      <div key={idx} ref={isActive ? activeLyricRef : null} className={`text-3xl sm:text-5xl lg:text-7xl font-black transition-all duration-1000 transform leading-tight ${isActive ? 'text-white translate-x-6 scale-110 opacity-100' : 'text-white/[0.03] blur-[4px] scale-90 hover:text-white/20 hover:blur-0 pointer-events-auto'}`}>
+                      <div key={idx} ref={isActive ? activeLyricRef : null} className={`text-2xl sm:text-3xl lg:text-4xl font-black transition-all duration-700 transform leading-tight ${isActive ? 'text-white translate-x-3 scale-110 opacity-100' : 'text-white/5 blur-[2px] hover:text-white/10 hover:blur-0 cursor-default'}`}>
                         {line.text}
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center opacity-10 gap-8">
-                   <Music size={100} strokeWidth={0.5} />
-                   <div className="text-xl font-black uppercase tracking-[0.6em]">Signal Silent</div>
+                <div className="h-full flex flex-col items-center justify-center opacity-10 gap-6">
+                   <Music size={64} strokeWidth={1} />
+                   <div className="text-sm font-black uppercase tracking-[0.4em]">Signal Idle</div>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* RIGHT COMPONENTS */}
-        <div className="lg:col-span-4 flex flex-col gap-8 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden min-w-0">
+        {/* RIGHT COLUMN */}
+        <div className="lg:col-span-4 flex flex-col gap-6 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden min-w-0 pt-6 lg:pt-0">
           
           {/* QUEUE */}
-          <div className="lg:flex-[0.4] glass-card flex flex-col overflow-hidden border-brand-accent/5 shadow-2xl">
-            <div className="p-6 border-b border-brand-border flex items-center justify-between bg-white/[0.05]">
+          <div className="lg:flex-[0.45] glass-card flex flex-col overflow-hidden">
+            <div className="p-5 border-b border-brand-border flex items-center justify-between bg-white/[0.04]">
                <div className="flex items-center gap-3">
-                 <ListMusic size={22} className="text-brand-accent" />
-                 <span className="label-caps mb-0 text-sm">Signal Archive</span>
+                 <ListMusic size={18} className="text-brand-accent" />
+                 <span className="label-caps mb-0 text-xs">Signal Queue</span>
                </div>
-               <span className="text-[10px] font-mono font-black text-brand-accent bg-brand-accent/10 px-3 py-1 rounded-full">{Math.max(0, queue.length - 1)} TRACKS</span>
+               <span className="text-[9px] font-mono font-black text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded-full">{Math.max(0, queue.length - 1)} NODES</span>
             </div>
-            <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 no-scrollbar pb-16">
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 no-scrollbar pb-12">
               <AnimatePresence>
                 {queue.length > 1 ? queue.slice(1).map((track, idx) => (
-                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} key={`${track.id}-${idx}`} className="group glass-card p-4 flex items-center gap-5 hover:border-brand-accent/50 bg-white/[0.02] transition-all hover:translate-x-1">
-                     <img src={getProxyUrl(track.thumbnail)} className="w-16 h-16 rounded-2xl object-cover" alt="" />
+                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} key={`${track.id}-${idx}`} className="group glass-card p-3 flex items-center gap-4 hover:border-brand-accent/30 bg-white/[0.01] transition-all">
+                     <img src={getProxyUrl(track.thumbnail)} className="w-12 h-12 rounded-xl object-cover" alt="" />
                      <div className="flex-1 min-w-0">
-                       <div className="text-[14px] font-black truncate leading-tight group-hover:text-brand-accent transition-colors uppercase tracking-tight">{track.title}</div>
-                       <div className="text-[10px] text-brand-text-dim truncate font-bold uppercase opacity-60 mt-1.5">{track.author}</div>
+                       <div className="text-[12px] font-black truncate group-hover:text-brand-accent transition-colors uppercase tracking-tight">{track.title}</div>
+                       <div className="text-[10px] text-brand-text-dim truncate font-bold uppercase opacity-50 mt-1">{track.author}</div>
                      </div>
-                     <button onClick={() => handleRemove(idx + 1)} className="lg:opacity-0 group-hover:opacity-100 hover:text-white transition-all p-3 bg-red-500/10 rounded-xl hover:bg-red-500/40">
-                       <Trash2 size={20} />
+                     <button onClick={() => handleRemove(idx + 1)} className="lg:opacity-0 group-hover:opacity-100 hover:text-white p-2">
+                       <Trash2 size={16} className="text-red-500/50 hover:text-red-500" />
                      </button>
                    </motion.div>
                 )) : (
-                  <div className="h-full flex flex-col items-center justify-center opacity-10 py-24 italic text-sm text-center px-12 tracking-widest leading-loose uppercase font-black text-xs">Awaiting data injection to signal queue</div>
+                  <div className="h-full flex flex-col items-center justify-center opacity-10 py-12 text-[10px] font-black tracking-widest uppercase">Waiting for data injection</div>
                 )}
               </AnimatePresence>
             </div>
           </div>
 
           {/* DISCOVERY */}
-          <div className="lg:flex-[0.6] glass-card flex flex-col overflow-hidden border-brand-accent/5 bg-white/[0.01] shadow-2xl">
-            <div className="p-6 border-b border-brand-border flex items-center justify-between bg-white/[0.05]">
+          <div className="lg:flex-[0.55] glass-card flex flex-col overflow-hidden bg-white/[0.01]">
+            <div className="p-5 border-b border-brand-border flex items-center justify-between bg-white/[0.04]">
               <div className="flex items-center gap-3">
-                <Globe size={22} className="text-brand-accent" />
-                <span className="label-caps mb-0 text-sm">Neural Discovery Hub</span>
+                <Globe size={18} className="text-brand-accent" />
+                <span className="label-caps mb-0 text-xs">Discovery Hub</span>
               </div>
-              {searchResults.length > 0 && <button onClick={() => setSearchResults([])} className="p-2 px-5 glass-card text-[10px] font-black text-red-500 hover:bg-red-500/10 active:scale-95 transition-all">FLUSH</button>}
+              {searchResults.length > 0 && <button onClick={() => setSearchResults([])} className="p-2 px-4 glass-card text-[9px] font-black text-red-500 hover:bg-red-500/10 active:scale-95 transition-all">FLUSH</button>}
             </div>
-            <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5 no-scrollbar pb-20">
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 no-scrollbar pb-16">
               <AnimatePresence>
                 {searchResults.map((t) => (
-                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={t.id} className="glass-card p-5 flex items-center gap-6 hover:border-brand-accent group overflow-hidden relative transition-all active:scale-[0.98]">
-                     <img src={getProxyUrl(t.thumbnail)} className="w-20 h-20 rounded-[1.5rem] object-cover z-10" alt="" />
+                   <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} key={t.id} className="glass-card p-4 flex items-center gap-4 hover:border-brand-accent group overflow-hidden relative transition-all active:scale-[0.98]">
+                     <img src={getProxyUrl(t.thumbnail)} className="w-14 h-14 rounded-2xl object-cover z-10" alt="" />
                      <div className="flex-1 min-w-0 z-10">
-                       <div className="text-[15px] font-black truncate group-hover:text-brand-accent transition-colors uppercase tracking-tight">{t.title}</div>
-                       <div className="text-[11px] text-brand-text-dim truncate font-bold opacity-60 mt-2">{t.author}</div>
+                       <div className="text-[13px] font-black truncate group-hover:text-brand-accent transition-colors uppercase tracking-tight">{t.title}</div>
+                       <div className="text-[10px] text-brand-text-dim truncate font-bold opacity-50 mt-1">{t.author}</div>
                      </div>
-                     <button onClick={() => handleAdd(t)} disabled={addingIds.has(t.id)} className="w-14 h-14 rounded-2xl bg-brand-accent/10 text-brand-accent flex items-center justify-center hover:bg-brand-accent hover:text-brand-dark transition-all z-10 shadow-2xl border border-brand-accent/30 active:scale-90">
-                       {addingIds.has(t.id) ? <Loader2 size={24} className="animate-spin" /> : <Plus size={28} />}
+                     <button onClick={() => handleAdd(t)} disabled={addingIds.has(t.id)} className="w-10 h-10 rounded-xl bg-brand-accent/10 text-brand-accent flex items-center justify-center hover:bg-brand-accent hover:text-brand-dark transition-all z-10 border border-brand-accent/20">
+                       {addingIds.has(t.id) ? <Loader2 size={18} className="animate-spin" /> : <Plus size={22} />}
                      </button>
-                     <div className="absolute inset-0 bg-brand-accent/[0.08] translate-y-full group-hover:translate-y-0 transition-transform duration-700" />
+                     <div className="absolute inset-0 bg-brand-accent/[0.05] translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
                    </motion.div>
                 ))}
               </AnimatePresence>
               {!isSearching && searchResults.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center gap-12 opacity-10 text-center p-12">
-                   <div className="relative scale-[2]">
-                      <Search size={48} strokeWidth={0.5} />
-                      <div className="absolute inset-0 blur-2xl bg-brand-accent/40 animate-pulse" />
+                <div className="h-full flex flex-col items-center justify-center gap-8 opacity-10 text-center p-8">
+                   <div className="relative">
+                      <Search size={40} strokeWidth={1} />
+                      <div className="absolute inset-0 blur-xl bg-brand-accent/30 animate-pulse" />
                    </div>
-                   <p className="text-xs font-black uppercase tracking-[0.6em] leading-loose">Transmit Query <br/> to Sync Network</p>
+                   <p className="text-[10px] font-black uppercase tracking-[0.4em] leading-relaxed">Broadcast to <br/> Capture Content</p>
                 </div>
               )}
             </div>
@@ -471,14 +447,14 @@ function App() {
         </div>
       </main>
 
-      {/* Neural Link Overlay (Toast) */}
+      {/* Global Toast Overlay */}
       <AnimatePresence>
         {lastAdded && (
-          <motion.div initial={{ opacity: 0, y: 150 }} animate={{ opacity: 1, y: -50 }} exit={{ opacity: 0, y: 150 }} className="fixed bottom-0 left-1/2 -translate-x-1/2 px-12 py-6 bg-brand-accent text-brand-dark font-black rounded-3xl shadow-[0_0_100px_rgba(0,255,191,0.6)] z-[200] flex items-center gap-8 whitespace-nowrap overflow-hidden max-w-[95%] border-t-[4px] border-white/30">
-            <Zap size={36} fill="currentColor" />
-            <div className="flex flex-col">
-               <span className="text-[11px] uppercase tracking-[0.4em] opacity-80 leading-none mb-2 font-black">Memory Injected</span>
-               <span className="text-lg lg:text-2xl tracking-tighter truncate leading-none uppercase">{lastAdded}</span>
+          <motion.div initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: -40 }} exit={{ opacity: 0, y: 100 }} className="fixed bottom-0 left-1/2 -translate-x-1/2 px-10 py-5 bg-brand-accent text-brand-dark font-black rounded-[2rem] shadow-neon-strong z-[200] flex items-center gap-6 whitespace-nowrap border-t-2 border-white/20">
+            <Zap size={24} fill="currentColor" />
+            <div className="flex flex-col leading-none">
+               <span className="text-[10px] uppercase tracking-[0.2em] opacity-80 mb-1 font-bold">Node Initialized</span>
+               <span className="text-base tracking-tight truncate uppercase">{lastAdded}</span>
             </div>
           </motion.div>
         )}
