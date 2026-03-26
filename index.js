@@ -104,6 +104,7 @@ apiRouter.post('/token', async (req, res) => {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         });
         res.json({ access_token: response.data.access_token });
+        console.log('[Auth API] Token exchange successful for User');
     } catch (err) {
         console.error('[Auth API] Token exchange failed:', err.response?.data || err.message);
         res.status(500).json({ error: 'Failed to exchange token' });
@@ -134,14 +135,17 @@ apiRouter.get('/search', async (req, res) => {
         const cookiesPath = process.env.YOUTUBE_COOKIES_PATH || './cookies.txt';
         if (require('fs').existsSync(cookiesPath)) options.cookies = cookiesPath;
         const info = await youtubedl(urlQuery, options);
-        const results = (info.entries || [info]).map(entry => ({
-            id: entry.id, title: entry.title, thumbnail: entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png',
-            author: entry.uploader || entry.channel || 'Unknown',
-            url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
-        })).filter(r => r.id);
+        const results = (info.entries || [info]).map(entry => {
+            const thumbnail = entry.thumbnail || (entry.thumbnails && entry.thumbnails.length > 0 ? entry.thumbnails[0].url : 'https://cdn.discordapp.com/embed/avatars/0.png');
+            return {
+                id: entry.id, title: entry.title, thumbnail,
+                author: entry.uploader || entry.channel || 'Unknown',
+                url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
+            };
+        }).filter(r => r.id);
         res.json(results);
     } catch (err) {
-        console.error('[API Search] Failure:', err.message);
+        console.error('[API Search] CRITICAL FAILURE:', err.message);
         res.status(500).json({ error: 'Search failed' });
     }
 });
@@ -149,11 +153,12 @@ apiRouter.get('/search', async (req, res) => {
 apiRouter.post('/add/:guildId', async (req, res) => {
     const { track, userId } = req.body;
     const guildId = req.params.guildId;
-    let queue = client.queues.get(guildId);
+    const queueMap = client.queues;
+    let queue = queueMap.get(guildId);
     if (!queue) {
         let voiceChannel;
         const guild = client.guilds.cache.get(guildId);
-        if (userId && userId !== 'Guest') {
+        if (userId && userId !== 'ActivityUser' && userId !== 'GuestUser') {
             const member = await guild?.members.fetch(userId).catch(() => null);
             voiceChannel = member?.voice.channel;
         }
@@ -161,28 +166,28 @@ apiRouter.post('/add/:guildId', async (req, res) => {
             const { ChannelType } = require('discord.js');
             voiceChannel = guild.channels.cache.find(c => c.type === ChannelType.GuildVoice && c.members.filter(m => !m.user.bot).size > 0);
         }
-        if (!voiceChannel) return res.status(404).json({ error: 'Join a Voice Channel first.' });
+        if (!voiceChannel) return res.status(404).json({ error: 'Please join a Voice Channel first.' });
         try {
             const queueConstruct = { textChannel: null, voiceChannel, connection: null, player: null, songs: [], playing: true, lastPlayedId: null, lyricOffsetMs: 0 };
-            client.queues.set(guildId, queueConstruct);
+            queueMap.set(guildId, queueConstruct);
             queue = queueConstruct;
             const { joinVoiceChannel, entersState, VoiceConnectionStatus } = require('@discordjs/voice');
             const connection = joinVoiceChannel({ channelId: voiceChannel.id, guildId, adapterCreator: guild.voiceAdapterCreator });
             await entersState(connection, VoiceConnectionStatus.Ready, 20000);
             queue.connection = connection;
-        } catch (err) { return res.status(500).json({ error: 'Join failed.' }); }
+        } catch (err) { return res.status(500).json({ error: 'Auto-join failed.' }); }
     }
-    queue.songs.push({ ...track, actualUrl: track.url || track.actualUrl, totalDurationMs: track.duration || track.totalDurationMs, requester: userId || 'Activity' });
+    queue.songs.push({ ...track, actualUrl: track.url || track.actualUrl, totalDurationMs: track.duration || track.totalDurationMs, requester: userId || 'Activity', youtubeId: track.id || track.youtubeId });
     if (queue.songs.length === 1 && (!queue.player || !['playing', 'buffering'].includes(queue.player.state.status))) {
         const { playNextSong } = require('./commands/play.js');
-        if (typeof playNextSong === 'function') playNextSong(guildId, client.queues, null);
+        if (typeof playNextSong === 'function') playNextSong(guildId, queueMap, null);
     }
     res.json({ success: true, position: queue.songs.length - 1 });
 });
 
 apiRouter.post('/sync/:guildId', async (req, res) => {
-    const { offset } = req.body;
     const guildId = req.params.guildId;
+    const { offset } = req.body;
     const queue = client.queues.get(guildId);
     if (!queue) return res.status(404).json({ error: 'No active queue' });
     queue.lyricOffsetMs = (queue.lyricOffsetMs || 0) + (offset || 0);
@@ -195,7 +200,6 @@ apiRouter.post('/source/:guildId', async (req, res) => {
     if (!queue || !queue.songs?.[0]) return res.status(404).json({ error: 'No active track' });
     const track = queue.songs[0];
     try {
-        console.log(`[API Source] Rotating source for: ${track.title} in Guild: ${guildId}`);
         const playCmd = require('./commands/play.js');
         const results = await playCmd.fetchSyncedLyrics(track.title, track.author, (track.duration || track.totalDurationMs) / 1000, track.query, track.actualUrl, true);
         if (results && results.lyrics) {
@@ -203,64 +207,61 @@ apiRouter.post('/source/:guildId', async (req, res) => {
             return res.json({ success: true, lyrics: results.lyrics });
         }
         res.status(404).json({ error: 'No alternative lyrics found' });
-    } catch (err) { 
-        console.error(`[API Source Error]`, err.message);
-        res.status(500).json({ error: err.message }); 
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 apiRouter.post('/remove/:guildId/:index', async (req, res) => {
-    const guildId = req.params.guildId;
-    const index = parseInt(req.params.index);
+    const { guildId, index } = req.params;
     const queue = client.queues.get(guildId);
-    if (!queue || !queue.songs) return res.status(404).json({ error: 'No active queue' });
-    if (index >= 0 && index < queue.songs.length) queue.songs.splice(index, 1);
+    if (!queue) return res.status(404).json({ error: 'No active queue' });
+    queue.songs.splice(parseInt(index), 1);
     res.json({ success: true });
 });
 
 apiRouter.post('/control/:guildId', async (req, res) => {
+    const { guildId } = req.params;
     const { action } = req.body;
-    const guildId = req.params.guildId;
-    const { getVoiceConnection } = require('@discordjs/voice');
-    const connection = getVoiceConnection(guildId);
-    if (!connection || !connection.state.subscription) return res.status(404).json({ error: 'No stream' });
-    const player = connection.state.subscription.player;
     const queue = client.queues.get(guildId);
-    switch (action) {
-        case 'pause': player.pause(); break;
-        case 'resume': player.unpause(); break;
-        case 'skip': require('./commands/play.js').cleanup(guildId, client.queues); player.stop(); break;
-        case 'clear':
-        case 'stop':
-            player.stop();
-            require('./commands/play.js').cleanup(guildId, client.queues);
-            client.queues.delete(guildId);
-            connection.destroy();
-            break;
-    }
-    res.json({ success: true });
+    if (!queue) return res.status(404).json({ error: 'No active queue' });
+    const player = queue.connection?.state?.subscription?.player;
+    try {
+        const playCmd = require('./commands/play.js');
+        switch (action) {
+            case 'pause': player?.pause(); break;
+            case 'resume': player?.unpause(); break;
+            case 'skip': playCmd.cleanup(guildId, client.queues); player?.stop(); break;
+            case 'stop':
+            case 'clear': 
+                if (player) player.stop();
+                playCmd.cleanup(guildId, client.queues); 
+                client.queues.delete(guildId); 
+                if (queue.connection) queue.connection.destroy(); 
+                break;
+        }
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 apiRouter.get('/lyrics', async (req, res) => {
     const { track, artist, duration, query, url, format } = req.query;
     if (!track) return res.status(400).json({ error: 'Missing track' });
     try {
-        console.log(`[API Lyrics] Request for: ${track} (${artist})`);
         const playCmd = require('./commands/play.js');
         const results = await playCmd.fetchSyncedLyrics(track, artist, parseInt(duration || 0), query, url);
         if (format === 'json') return res.json(results && results.lyrics ? results.lyrics : []);
         res.json({ lyrics: results?.lyrics?.map(l => l.text).join('\n') || 'Lyrics not found' });
-    } catch (err) { 
-        console.error(`[API Lyrics Error] for ${track}:`, err.message);
-        res.json({ lyrics: '' }); 
-    }
+    } catch (err) { res.json({ lyrics: 'Searching...' }); }
 });
 
 apiRouter.get('/proxy', async (req, res) => {
     const url = req.query.url;
     if (!url) return res.status(400).send('Missing URL');
     try {
-        const response = await axios.get(decodeURIComponent(url), { responseType: 'arraybuffer', timeout: 5000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const response = await axios.get(decodeURIComponent(url), {
+            responseType: 'arraybuffer',
+            timeout: 5000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
         res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
         res.set('Cache-Control', 'public, max-age=86400');
         res.send(response.data);
@@ -271,55 +272,70 @@ apiRouter.get('/system', (req, res) => {
     const totalMem = os.totalmem();
     const usedMem = totalMem - os.freemem();
     res.json({
-        mem: { total: totalMem, percent: ((usedMem / totalMem) * 100).toFixed(1) },
+        mem: { total: totalMem, used: usedMem, percent: ((usedMem / totalMem) * 100).toFixed(1) },
         uptime: process.uptime(), load: os.loadavg()[0].toFixed(2), activeQueues: client.queues.size
     });
 });
 
+// MOUNT ROUTER
 app.use('/api', apiRouter);
 app.use('/activity/api', apiRouter);
 
-app.get(/^\/(activity($|\/.*))?$/, (req, res) => {
+// Support SPA routing (Express 5 COMPATIBLE pattern)
+app.get('/:splat*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.use((req, res) => {
-    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API not found' });
-    res.sendFile(path.join(distPath, 'index.html'));
-});
-
-// Command Loader
+// Load Commands
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
-    fs.readdirSync(commandsPath).filter(f => f.endsWith('.js')).forEach(f => {
-        const cmd = require(path.join(commandsPath, f));
-        if (cmd.data && cmd.execute) client.commands.set(cmd.data.name, cmd);
-    });
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    for (const file of commandFiles) {
+        try {
+            const command = require(path.join(commandsPath, file));
+            if ('data' in command && 'execute' in command) {
+                client.commands.set(command.data.name, command);
+            }
+        } catch (e) {
+            console.error(`[Startup] Failed to load ${file}:`, e.message);
+        }
+    }
 }
+
+// Start Express Server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`[Activity] Web Server running on port ${PORT}`);
+});
 
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
+    console.log('Registering global slash commands...');
     const commandsData = client.commands.map(c => c.data.toJSON ? c.data.toJSON() : c.data);
+    
     try {
         await client.application.commands.set(commandsData);
         const guilds = await client.guilds.fetch();
         for (const [id, guild] of guilds) {
-            const fg = await guild.fetch();
-            await fg.commands.set(commandsData).catch(e => console.error(`[Sync] Fail for ${fg.name}:`, e.message));
+            const fullGuild = await guild.fetch();
+            await fullGuild.commands.set(commandsData).catch(e => console.error(`[Sync] Fail for ${fullGuild.name}:`, e.message));
         }
-        console.log(`[Sync] Neural-indexing complete.`);
-    } catch (error) { console.error('[Sync] Registry Failure:', error); }
+        console.log('[Sync] Neural Registry Success.');
+    } catch (error) {
+        console.error('[Sync] Registry Failure:', error);
+    }
 });
 
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
-    try {
-        console.log(`[Command] /${interaction.commandName} by ${interaction.user.tag}`);
-        await command.execute(interaction);
-    } catch (error) {
-        console.error(`[Error] /${interaction.commandName}:`, error);
+    if (interaction.isChatInputCommand()) {
+        const command = client.commands.get(interaction.commandName);
+        if (!command) return;
+        try {
+            await command.execute(interaction);
+        } catch (error) {
+            console.error(`[Command Error] Error executing /${interaction.commandName}:`, error);
+        }
     }
 });
 

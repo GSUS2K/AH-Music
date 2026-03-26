@@ -19,6 +19,7 @@
     "@distube/yt-dlp": "^2.0.1",
     "@distube/ytdl-core": "^4.16.12",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "axios": "^1.13.6",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
     "discord-player": "^7.2.0",
