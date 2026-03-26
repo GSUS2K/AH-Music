@@ -87,6 +87,8 @@ function App() {
   const [isPacmanOpen, setIsPacmanOpen] = useState(false);
   const expandedContainerRef = useRef(null);
   const expandedActiveRef = useRef(null);
+  const isStandalone = !!window.aether;
+  const localAudioRef = useRef(null);
 
   const formatTime = (ms) => {
     if (!ms || isNaN(ms)) return "0:00";
