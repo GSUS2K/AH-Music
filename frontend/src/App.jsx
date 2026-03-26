@@ -81,9 +81,12 @@ function App() {
   const [currentTrackTitle, setCurrentTrackTitle] = useState("");
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [uptime, setUptime] = useState("00:00:00");
-  const expandedActiveRef = useRef(null);
+  const [isLyricsExpanded, setIsLyricsExpanded] = useState(false);
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [typedBuffer, setTypedBuffer] = useState("");
   const [isPacmanOpen, setIsPacmanOpen] = useState(false);
+  const expandedContainerRef = useRef(null);
+  const expandedActiveRef = useRef(null);
 
   const getProxyUrl = (url) => url ? `${API_BASE}/api/proxy?url=${encodeURIComponent(url)}` : null;
 
