@@ -99,7 +99,38 @@ function App() {
       
       const serverMs = resp.data.currentMs || 0;
       if (Math.abs(currentTime - serverMs) > 1000 || currentTime === 0) setCurrentTime(serverMs);
+
+      const track = resp.data.songs && resp.data.songs[0];
+      if (track && track.title !== currentTrackTitle) {
+        setCurrentTrackTitle(track.title);
+        updateDiscordRichPresence(track);
+      }
     } catch (err) {}
+  };
+
+  const updateDiscordRichPresence = async (track) => {
+    if (!discordSdkRef.current || !track) return;
+    try {
+      await discordSdkRef.current.commands.setActivity({
+        activity: {
+          type: 2, // Listening to
+          details: "Listening on AH Music",
+          state: `${track.title} - ${track.author}`,
+          assets: {
+            large_image: track.thumbnail || "https://cdn.discordapp.com/embed/avatars/0.png",
+            large_text: track.title,
+            small_image: `https://aftrhrsmsc.duckdns.org/activity/logo.png`,
+            small_text: "AH Music Stream"
+          },
+          timestamps: {
+            start: Date.now()
+          }
+        }
+      });
+      console.log("[Discord SDK] Presence synced:", track.title);
+    } catch (err) {
+      console.warn("[Discord SDK] setActivity failed:", err.message);
+    }
   };
 
   const fetchSystemStats = async () => {
@@ -244,7 +275,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V5.0.0 // THE_CINEMATIC_RELEASE</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V5.0.3 // SYNC_RICH_PRESENCE</span>
              </div>
           </div>
           
