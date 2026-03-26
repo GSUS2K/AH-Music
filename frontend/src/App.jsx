@@ -5,7 +5,13 @@ import { setupDiscordSdk } from './discord';
 import axios from 'axios';
 import './App.css';
 
-const API_BASE = '.';
+const getApiBase = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.pathname.startsWith('/activity') ? '/activity' : '';
+  }
+  return '';
+};
+const API_BASE = getApiBase();
 
 const remoteLog = (msg, err = '') => {
   axios.post(`${API_BASE}/api/log`, { message: msg, error: err }).catch(() => {});
@@ -101,6 +107,7 @@ function App() {
   }, []);
 
   const fetchQueue = async (guildId) => {
+    if (!guildId || guildId === '0') return;
     try {
       const resp = await axios.get(`${API_BASE}/api/queue/${guildId}`);
       setIsPlaying(resp.data.isPlaying);
@@ -112,9 +119,9 @@ function App() {
       
       if (serverSongs.length > 0) {
         // Sync local clock with server if drift > 500ms
-        const drift = Math.abs(currentTime - resp.data.currentMs);
+        const drift = Math.abs(currentTime - (resp.data.currentMs || 0));
         if (drift > 500) {
-          setCurrentTime(resp.data.currentMs);
+          setCurrentTime(resp.data.currentMs || 0);
         }
       }
     } catch (err) {
@@ -300,21 +307,27 @@ function App() {
   };
 
   const handleAdd = async (track) => {
-    if (!auth?.guild_id) {
+    const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
+    const userId = auth?.user?.id || 'ActivityUser';
+    
+    if (!guildId || guildId === '0') {
         remoteLog("Click denied: Missing Guild Context", track.title);
+        alert("Please open this activity in a Server (Guild) to add music.");
         return;
     }
-    remoteLog("Click accepted: Adding " + track.title);
+    remoteLog("Click accepted: Adding " + track.title + " to " + guildId);
     setAddingIds(prev => new Set(prev).add(track.id));
     try {
-      await axios.post(`${API_BASE}/api/add/${auth.guild_id}`, { 
-        track, userId: auth.user.id 
+      await axios.post(`${API_BASE}/api/add/${guildId}`, { 
+        track, userId
       });
-      fetchQueue(auth.guild_id);
+      fetchQueue(guildId);
       setLastAdded(track.title);
       setTimeout(() => setLastAdded(null), 3000);
     } catch (err) {
+      console.error("Add error:", err);
       if (err.response?.status === 404) alert("Please join a Voice Channel first.");
+      else alert("Failed to add track: " + (err.response?.data?.error || err.message));
     } finally {
       setAddingIds(prev => {
         const next = new Set(prev);
@@ -398,7 +411,16 @@ function App() {
                   <div className="player-flex">
                     <div className="artwork-wrapper">
                       <div className="artwork-ambient" style={{ backgroundImage: `url(${getProxyUrl(currentTrack.thumbnail)})` }} />
-                      <img src={getProxyUrl(currentTrack.thumbnail)} alt="Artwork" className="artwork-main" />
+                      <img 
+                        src={getProxyUrl(currentTrack.thumbnail)} 
+                        alt="Artwork" 
+                        className="artwork-main" 
+                        onError={(e) => {
+                          console.warn("Main artwork failed to load:", e.target.src);
+                          e.target.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
+                          remoteLog("Artwork Load Failure", currentTrack.thumbnail);
+                        }}
+                      />
                       <div className="visualizer" style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)' }}>
                         {[...Array(8)].map((_, i) => <div key={i} className="visual-bar" style={{ animationDelay: `${i*0.1}s` }} />)}
                       </div>
@@ -532,7 +554,14 @@ function App() {
                   key={t.id} 
                   className="track-card-mini"
                 >
-                  <img src={getProxyUrl(t.thumbnail)} alt="" className="mini-artwork" />
+                  <img 
+                    src={getProxyUrl(t.thumbnail)} 
+                    alt="" 
+                    className="mini-artwork" 
+                    onError={(e) => {
+                      e.target.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
+                    }}
+                  />
                   <div className="mini-info">
                     <div className="mini-title">{t.title}</div>
                     <div className="mini-author">{t.author}</div>

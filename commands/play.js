@@ -50,7 +50,7 @@ module.exports = {
                 const entry = info.entries ? info.entries[0] : info;
                 if (!entry) throw new Error('No results');
                 title = entry.title || 'Unknown Track';
-                thumbnail = entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                thumbnail = entry.thumbnail || (entry.thumbnails && entry.thumbnails.length > 0 ? entry.thumbnails[0].url : 'https://cdn.discordapp.com/embed/avatars/0.png');
                 author = entry.uploader || 'Unknown Artist';
                 actualUrl = entry.webpage_url || query;
                 totalDurationMs = (entry.is_live || entry.live_status === 'is_live') ? 0 : (entry.duration || 0) * 1000;

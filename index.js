@@ -145,13 +145,16 @@ apiRouter.get('/search', async (req, res) => {
         }
 
         const info = await youtubedl(urlQuery, options);
-        const results = (info.entries || [info]).map(entry => ({
-            id: entry.id, title: entry.title, thumbnail: entry.thumbnail,
-            author: entry.uploader || entry.channel || 'Unknown',
-            url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
-        })).filter(r => r.id);
+        const results = (info.entries || [info]).map(entry => {
+            const thumbnail = entry.thumbnail || (entry.thumbnails && entry.thumbnails.length > 0 ? entry.thumbnails[0].url : 'https://cdn.discordapp.com/embed/avatars/0.png');
+            return {
+                id: entry.id, title: entry.title, thumbnail,
+                author: entry.uploader || entry.channel || 'Unknown',
+                url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
+            };
+        }).filter(r => r.id);
         res.json(results);
-        console.log(`[API Search] Found ${results.length} results for: ${q}`);
+        console.log(`[API Search] Found ${results.length} results for: ${query}`);
         if (results.length > 0) console.log(`[API Search] Sample Thumbnail: ${results[0].thumbnail}`);
     } catch (err) {
         console.error('[API Search] CRITICAL FAILURE:', err.message);
@@ -163,6 +166,7 @@ apiRouter.get('/search', async (req, res) => {
 apiRouter.post('/add/:guildId', async (req, res) => {
     const { track, userId } = req.body;
     const guildId = req.params.guildId;
+    console.log(`[API Add] Adding track: "${track?.title}" to Guild: ${guildId} by User: ${userId}`);
     const queueMap = client.queues;
     let queue = queueMap.get(guildId);
     if (!queue) {
@@ -234,16 +238,24 @@ apiRouter.get('/proxy', async (req, res) => {
     const url = req.query.url;
     if (!url) return res.status(400).send('Missing URL');
     try {
-        const response = await axios.get(url, { 
+        // Ensure URL is decoded properly
+        const targetUrl = decodeURIComponent(url);
+        const response = await axios.get(targetUrl, { 
             responseType: 'arraybuffer',
+            timeout: 5000,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'image/*'
             }
         });
-        res.set('Content-Type', response.headers['content-type']);
+        const contentType = response.headers['content-type'] || 'image/jpeg';
+        res.set('Content-Type', contentType);
         res.set('Cache-Control', 'public, max-age=86400');
         res.send(response.data);
-    } catch (err) { res.status(500).send('Proxy failed'); }
+    } catch (err) { 
+        console.error(`[Proxy Error] Failed to proxy: ${url} -> ${err.message}`);
+        res.status(500).send('Proxy failed'); 
+    }
 });
 
 apiRouter.get('/system', (req, res) => {
