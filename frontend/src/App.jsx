@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, Search, Plus, Loader2, ListMusic, Music, Globe, User, BookOpen, Trash2, Rewind, FastForward, ExternalLink, ChevronLeft, ChevronRight, Zap, X, Cpu, HardDrive, Activity, Radio, Signal, Wifi, Clock } from 'lucide-react';
+import { Play, Pause, SkipForward, Search, Plus, Loader2, ListMusic, Music, Globe, User, BookOpen, Trash2, Rewind, FastForward, ExternalLink, ChevronLeft, ChevronRight, Zap, X, Cpu, HardDrive, Activity, Radio, Signal, Wifi, Clock, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { setupDiscordSdk } from './discord';
 import axios from 'axios';
@@ -45,6 +45,7 @@ function App() {
   const [currentTrackTitle, setCurrentTrackTitle] = useState("");
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [uptime, setUptime] = useState("00:00:00");
+  const [isLyricsExpanded, setIsLyricsExpanded] = useState(false);
 
   const getProxyUrl = (url) => url ? `${API_BASE}/api/proxy?url=${encodeURIComponent(url)}` : null;
 
@@ -129,10 +130,10 @@ function App() {
     if (activeLyricRef.current && !isAutoScrollPaused && lyricsContainerRef.current) {
         const activeLine = activeLyricRef.current;
         const container = lyricsContainerRef.current;
-        const top = activeLine.offsetTop - (container.offsetHeight / 2) + (activeLine.offsetHeight / 2);
-        container.scrollTo({ top, behavior: 'smooth' });
+        const targetScroll = activeLine.offsetTop - (container.offsetHeight / 2) + (activeLine.offsetHeight / 2);
+        container.scrollTo({ top: targetScroll, behavior: 'smooth' });
     }
-  }, [activeLyricIndex, isAutoScrollPaused]);
+  }, [activeLyricIndex, isAutoScrollPaused, isLyricsExpanded]);
 
   const fetchLyrics = async (trackTitle, trackAuthor, trackDuration, trackUrl) => {
     if (!trackTitle) return;
@@ -232,7 +233,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.8.9 // SYNC_ACTIVE</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.0 // SYNC_EXPANDED</span>
              </div>
           </div>
           
@@ -392,7 +393,7 @@ function App() {
                 <span className="label-caps mb-0 text-[10px] tracking-widest uppercase">Subtitles // {isPlaying ? 'DECODING' : 'IDLE'}</span>
               </div>
               <div className="flex items-center gap-4">
-                 <div className="flex items-center glass-card p-1 rounded-xl bg-black/20 border-white/5">
+                 <div className="flex items-center glass-card p-1 rounded-xl bg-black/20 border-white/5 mx-2">
                     <button onClick={() => handleSync(-500)} className="p-2 hover:text-brand-accent"><ChevronLeft size={18} /></button>
                     <span className="text-[10px] font-mono text-brand-accent font-black w-14 text-center">{lyricOffsetMs}ms</span>
                     <button onClick={() => handleSync(500)} className="p-2 hover:text-brand-accent"><ChevronRight size={18} /></button>
@@ -400,11 +401,22 @@ function App() {
                  <button onClick={() => {
                    const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
                    axios.post(`${API_BASE}/api/source/${guildId}`).catch(e => console.error('Rotate error:', e));
-                 }} className="px-5 py-2.5 glass-card text-[10px] font-black hover:border-brand-accent transition-all uppercase tracking-widest active:scale-95 border-white/10">Rotate</button>
+                 }} className="hidden md:flex px-5 py-2.5 glass-card text-[10px] font-black hover:border-brand-accent transition-all uppercase tracking-widest active:scale-95 border-white/10">Rotate</button>
+                 <button onClick={() => setIsLyricsExpanded(true)} className="w-10 h-10 flex items-center justify-center glass-card hover:border-brand-accent transition-all border-white/10 shrink-0">
+                   <Maximize2 size={18} className="text-brand-accent" />
+                 </button>
               </div>
             </div>
             
             <div className="flex-1 overflow-y-auto p-10 lg:p-20 no-scrollbar scroll-smooth relative" ref={lyricsContainerRef} onWheel={() => setIsAutoScrollPaused(true)} onTouchStart={() => setIsAutoScrollPaused(true)}>
+              {isAutoScrollPaused && lyrics.length > 0 && (
+                <button 
+                  onClick={() => setIsAutoScrollPaused(false)}
+                  className="sticky top-0 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-brand-accent text-black font-black text-[10px] uppercase tracking-widest rounded-full shadow-neon translate-y-4 animate-bounce hover:scale-105 transition-transform"
+                >
+                  <RotateCcw size={12} /> Resume Sync
+                </button>
+              )}
               {isLyricsLoading ? (
                 <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-brand-accent" size={48} /></div>
               ) : lyrics.length > 0 ? (
@@ -521,6 +533,64 @@ function App() {
             <div className="flex flex-col leading-none">
                <span className="text-[10px] uppercase tracking-[0.2em] opacity-80 mb-1 font-bold">Node Initialized</span>
                <span className="text-base tracking-tight truncate uppercase">{lastAdded}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* FULL SCREEN LYRICS OVERLAY */}
+      <AnimatePresence>
+        {isLyricsExpanded && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.1 }}
+            className="fixed inset-0 z-[200] bg-brand-dark/95 backdrop-blur-[50px] flex flex-col items-center justify-center p-8 overflow-hidden"
+          >
+            <button 
+              onClick={() => setIsLyricsExpanded(false)}
+              className="absolute top-10 right-10 w-16 h-16 flex items-center justify-center glass-card hover:border-brand-accent transition-all border-white/10 group active:scale-90"
+            >
+              <Minimize2 size={32} className="text-brand-text-dim group-hover:text-brand-accent transition-colors" />
+            </button>
+
+            <div className="w-full max-w-5xl h-full flex flex-col">
+               <div className="flex-shrink-0 flex flex-col items-center mb-12">
+                  <span className="label-caps text-brand-accent mb-4 tracking-[0.5em] text-sm animate-pulse">Immersive Output // Stable</span>
+                  <h2 className="text-4xl font-black uppercase tracking-tighter text-white opacity-80">{currentTrack?.title}</h2>
+                  <p className="text-brand-accent font-bold tracking-widest mt-2">{currentTrack?.author}</p>
+               </div>
+
+               <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth flex flex-col px-4" ref={lyricsContainerRef} onWheel={() => setIsAutoScrollPaused(true)}>
+                  <div className="flex flex-col gap-12 lg:gap-20 py-[40vh] items-center text-center">
+                    {lyrics.map((line, idx) => {
+                      const isActive = idx === activeLyricIndex;
+                      return (
+                        <div 
+                          key={idx} 
+                          ref={isActive ? activeLyricRef : null} 
+                          className={`text-4xl sm:text-5xl lg:text-7xl font-black transition-all duration-700 transform leading-tight max-w-4xl ${
+                            isActive 
+                              ? 'text-brand-accent scale-110 opacity-100 drop-shadow-[0_0_30px_rgba(0,255,191,0.5)]' 
+                              : 'text-white/20 opacity-40 blur-[2px] transition-all'
+                          }`}
+                        >
+                          {line.text}
+                        </div>
+                      );
+                    })}
+                  </div>
+               </div>
+
+               {isAutoScrollPaused && (
+                <div className="flex justify-center mt-8">
+                  <button 
+                    onClick={() => setIsAutoScrollPaused(false)}
+                    className="flex items-center gap-3 px-8 py-4 bg-brand-accent text-black font-black uppercase tracking-[0.3em] rounded-full shadow-neon scale-110 active:scale-95 transition-all"
+                  >
+                    <RotateCcw size={18} /> Re-Sync
+                  </button>
+                </div>
+               )}
             </div>
           </motion.div>
         )}
