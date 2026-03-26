@@ -348,7 +348,6 @@ function App() {
           <div className="flex items-center gap-3">
              <div className="w-9 h-9 glass-card flex items-center justify-center border-brand-accent/30 relative">
                <Zap className="text-brand-accent" size={18} fill="currentColor" />
-               <div className="absolute -top-1 -right-1 w-2 h-2 bg-brand-accent rounded-full shadow-[0_0_8px_#00ffbf]" />
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none mini-hide">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
