@@ -1,40 +1,72 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { exec } = require('child_process');
 const fs = require('fs');
+const path = require('path');
 
 const OWNER_ID = process.env.OWNER_ID || '682288992456409096';
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('restart')
-        .setDescription('Restart the bot (Owner only)'),
+        .setDescription('Restart the bot or pull latest updates')
+        .addBooleanOption(option => 
+            option.setName('update')
+                .setDescription('Pull latest changes from GitHub & Rebuild (default: true)')
+                .setRequired(false)),
     async execute(interaction) {
         if (interaction.user.id !== OWNER_ID) {
-            return interaction.reply({ content: 'You are not authorized to use this command.', ephemeral: true });
+            return interaction.reply({ content: 'Unauthorized: Command available to owners only.', ephemeral: true });
         }
 
-        await interaction.reply({ content: '🚀 **Update & Reset Sequence Initiated**\n- Cleaning local environment...\n- Pulling latest nebula-code (Hard Reset)...\n- Rebuilding neural-activity (Vite)...\n- Refreshing PM2 process...', ephemeral: true });
-        
+        const shouldUpdate = interaction.options.getBoolean('update') !== false;
         const pm2Name = process.env.PM2_APP_NAME || 'AH-Music';
         
-        // Force a hard reset to match origin/main and then rebuild the frontend
+        // Write restart context for index.js to pick up after reboot
+        const context = {
+            guildId: interaction.guildId,
+            channelId: interaction.channelId,
+            updated: shouldUpdate,
+            timestamp: Date.now()
+        };
+        fs.writeFileSync('./.restart_context.json', JSON.stringify(context));
+
+        if (!shouldUpdate) {
+            await interaction.reply({ content: `✅ **Simple Restart Initiated**\n- Writing context...\n- Restarting \`${pm2Name}\` process...`, ephemeral: true });
+            return exec(`pm2 restart ${pm2Name}`, (err) => {
+                if (err) console.error('[Restart] PM2 error:', err.message);
+            });
+        }
+
+        await interaction.reply({ 
+            content: '🚀 **Full Update & Rebuild Sequence Initiated**\n- Pulling latest nebula-code (Reset)...\n- Rebuilding neural-activity (Vite)...\n- Refreshing PM2 process...', 
+            ephemeral: true 
+        });
+
+        // Hard reset to origin/main and build
         const updateCommand = `git fetch --all && git reset --hard origin/main && npm run build-activity`;
         
-        console.log(`[Restart] Initiating update for ${pm2Name}...`);
+        console.log(`[Restart] Initiating full update for ${pm2Name}...`);
         
         exec(updateCommand, (err, stdout, stderr) => {
             if (err) {
-                console.error('[Restart] Critical Failure:', err.message);
-                return interaction.followUp({ content: `❌ **Sequence Aborted**: ${err.message}\n\`\`\`${stderr.substring(0, 500)}\`\`\``, ephemeral: true });
+                console.error('[Restart] Build Failure:', err.message);
+                // Clear context on failure so it doesn't loop or send wrong status
+                if (fs.existsSync('./.restart_context.json')) fs.unlinkSync('./.restart_context.json');
+                return interaction.followUp({ 
+                    content: `❌ **Update Failed**: ${err.message}\n\`\`\`${stderr.substring(0, 300)}\`\`\``, 
+                    ephemeral: true 
+                });
             }
             
             const buildSuccess = stdout.includes('built in') || stdout.includes('successfully');
-            const statusMsg = buildSuccess ? '✅ **Latest changes pulled and rebuilt successfully.**' : '⚠️ **Pull complete, but build output was ambiguous. Restarting anyway...**';
+            const statusMsg = buildSuccess 
+                ? '✅ **Neural-activity rebuilt successfully.**' 
+                : '⚠️ **Rebuilt, but output was inconsistent. Proceeding...**';
             
-            console.log(`[Restart] Build Output:\n${stdout.substring(stdout.length - 1000)}`);
-
-            interaction.followUp({ content: `${statusMsg}\n- Version: \`v3.2-QUEUED\`\n- Restarting \`${pm2Name}\` now...`, ephemeral: true }).then(() => {
-                // Final step: Restart the PM2 process
+            interaction.followUp({ 
+                content: `${statusMsg}\n- Restarting \`${pm2Name}\` now...`, 
+                ephemeral: true 
+            }).then(() => {
                 exec(`pm2 restart ${pm2Name}`, (restErr) => {
                     if (restErr) console.error('[Restart] PM2 Failure:', restErr.message);
                 });
