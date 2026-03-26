@@ -227,7 +227,7 @@ function App() {
           <div className="flex items-center gap-3">
              <div className="w-9 h-9 glass-card flex items-center justify-center border-brand-accent/30 relative">
                <Zap className="text-brand-accent" size={18} fill="currentColor" />
-               <div className="absolute -top-1 -right-1 w-2 h-2 bg-brand-accent rounded-full animate-ping" />
+               <div className="absolute -top-1 -right-1 w-2 h-2 bg-brand-accent rounded-full shadow-[0_0_8px_#00ffbf]" />
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
@@ -265,14 +265,16 @@ function App() {
 
         {/* RIGHT: USER BIO + VOICE NODE */}
         <div className="flex items-center justify-end gap-6 min-w-[240px]">
-          <div className="hidden sm:flex flex-col items-end leading-none gap-2 pr-6 border-r border-white/5 h-8 justify-center">
-             <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                <span className="text-[10px] font-black uppercase text-white tracking-widest">{auth?.user?.username || 'GUEST'}</span>
-             </div>
-             <div className="flex items-center gap-1">
-                <Signal size={10} className="text-brand-accent" />
-                <span className="text-[8px] font-mono text-brand-accent uppercase tracking-tighter font-bold">{voiceChannel}</span>
+          <div className="hidden sm:flex items-center leading-none gap-4 pr-6 border-r border-white/5 h-8 justify-center">
+             <div className="flex flex-row items-center gap-4">
+                <div className="flex items-center gap-1.5 order-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                   <span className="text-[10px] font-black uppercase text-white tracking-widest leading-none">{auth?.user?.username || 'GUEST'}</span>
+                </div>
+                <div className="flex items-center gap-1 opacity-50 border-r border-white/10 pr-4 order-1 text-brand-accent">
+                   <Signal size={12} className="pb-0.5" />
+                   <span className="text-[9px] font-mono uppercase tracking-tighter font-bold">{voiceChannel}</span>
+                </div>
              </div>
           </div>
           <div className="w-10 h-10 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden shrink-0 group hover:border-brand-accent transition-colors">
@@ -328,7 +330,7 @@ function App() {
 
                 <div className="flex-1 flex flex-col justify-center min-w-0 text-center sm:text-left pt-4 sm:pt-0">
                   <div className="label-caps mb-3 text-brand-accent/50 text-[10px] flex items-center gap-2 justify-center sm:justify-start">
-                     <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-ping" />
+                     <span className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
                      Signal Output // Active
                   </div>
                   <h1 className="text-3xl lg:text-5xl font-black tracking-tighter mb-2 truncate leading-none uppercase">
@@ -383,7 +385,10 @@ function App() {
                     <span className="text-[10px] font-mono text-brand-accent font-black w-14 text-center">{lyricOffsetMs}ms</span>
                     <button onClick={() => handleSync(500)} className="p-2 hover:text-brand-accent"><ChevronRight size={18} /></button>
                  </div>
-                 <button onClick={() => axios.post(`${API_BASE}/api/source/${auth.guild_id}`)} className="px-5 py-2.5 glass-card text-[10px] font-black hover:border-brand-accent transition-all uppercase tracking-widest active:scale-95 border-white/10">Rotate</button>
+                 <button onClick={() => {
+                   const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
+                   axios.post(`${API_BASE}/api/source/${guildId}`).catch(e => console.error('Rotate error:', e));
+                 }} className="px-5 py-2.5 glass-card text-[10px] font-black hover:border-brand-accent transition-all uppercase tracking-widest active:scale-95 border-white/10">Rotate</button>
               </div>
             </div>
             
