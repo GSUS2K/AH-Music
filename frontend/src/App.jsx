@@ -129,11 +129,14 @@ function App() {
   }, [currentTime, lyrics, lyricOffsetMs]);
 
   useEffect(() => {
-    // Normal Sync
+    // Normal Sync (Bounded Scroll)
     if (activeLyricRef.current && !isAutoScrollPaused && lyricsContainerRef.current) {
-        activeLyricRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const activeLine = activeLyricRef.current;
+        const container = lyricsContainerRef.current;
+        const targetScroll = activeLine.offsetTop - (container.offsetHeight / 2) + (activeLine.offsetHeight / 2);
+        container.scrollTo({ top: targetScroll, behavior: 'smooth' });
     }
-    // Expanded Sync
+    // Expanded Sync (Bounded Scroll)
     if (expandedActiveRef.current && !isAutoScrollPaused && expandedContainerRef.current) {
         const activeLine = expandedActiveRef.current;
         const container = expandedContainerRef.current;
@@ -240,7 +243,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.4 // SYNC_VISIBLE</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.6 // SYNC_STABLE</span>
              </div>
           </div>
           
@@ -563,7 +566,7 @@ function App() {
             <div className="w-full max-w-5xl h-full flex flex-col">
                <div className="flex-shrink-0 flex flex-col items-center mb-12">
                   <span className="label-caps text-brand-accent mb-4 tracking-[0.5em] text-sm animate-pulse">Immersive Output // Stable</span>
-                  <h2 className="text-4xl font-black uppercase tracking-tighter text-white opacity-80">{currentTrack?.title}</h2>
+                  <h2 className="text-2xl lg:text-4xl font-black uppercase tracking-tighter text-white opacity-80 truncate w-full max-w-4xl text-center px-6">{currentTrack?.title}</h2>
                   <p className="text-brand-accent font-bold tracking-widest mt-2">{currentTrack?.author}</p>
                </div>
 
