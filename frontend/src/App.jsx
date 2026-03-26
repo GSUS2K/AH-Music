@@ -151,6 +151,17 @@ function App() {
       if (track && track.title !== currentTrackTitle) {
         setCurrentTrackTitle(track.title);
         updateDiscordRichPresence(track, serverMs);
+
+        // --- AETHER: LOCAL PLAYBACK SYNC (V6.0.0) ---
+        if (isStandalone && track.actualUrl) {
+            if (!localAudioRef.current) {
+                localAudioRef.current = new Audio();
+                localAudioRef.current.volume = 0.5;
+            }
+            const streamUrl = `http://localhost:${window.aether?.streamPort || 3333}/stream?url=${encodeURIComponent(track.actualUrl)}`;
+            localAudioRef.current.src = streamUrl;
+            localAudioRef.current.play().catch(e => console.error("[Aether] Playback blocked:", e));
+        }
       }
     } catch (err) {}
   };
