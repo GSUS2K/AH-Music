@@ -143,6 +143,7 @@ module.exports = {
         const queue = queueMap.get(guildId);
         if (queue && queue.songs?.[0]) {
             console.log(`[Queue] Starting: "${queue.songs[0].title}" (${queue.songs[0].actualUrl})`);
+            queue.lyricOffsetMs = 0;
         }
         
         if (queue && queue.songs.length === 0 && queue.lastPlayedId) {
@@ -212,6 +213,7 @@ module.exports = {
             queue.player.on(AudioPlayerStatus.Idle, () => {
                 console.log(`[Queue] Track ended/skipped in Guild: ${guildId}. Next up...`);
                 if (queue.progressInterval) clearInterval(queue.progressInterval);
+                queue.lyricOffsetMs = 0;
                 queue.songs.shift(); 
                 module.exports.playNextSong(guildId, queueMap, null);
             });
