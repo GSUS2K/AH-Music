@@ -61,6 +61,10 @@ module.exports = {
                 // Read the NEW version from the disk after pull
                 const newVersion = JSON.parse(fs.readFileSync(path.join(__dirname, '../version.json'), 'utf8')).version;
 
+                // Restoring the reboot context for the startup embed
+                const context = { channelId: interaction.channelId, updated: true, timestamp: Date.now() };
+                fs.writeFileSync('./.restart_context.json', JSON.stringify(context));
+
                 interaction.followUp({ content: `✅ **Update successful (V${newVersion}-AUTONOMY).** Rebooting...`, ephemeral: true }).then(() => {
                     exec(`pm2 restart ${pm2Name}`);
                 });
