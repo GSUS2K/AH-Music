@@ -310,7 +310,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.3'} // SYNC_MASTER_HUD</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.4'} // LAYOUT_OPTIMIZED</span>
              </div>
           </div>
           
@@ -393,7 +393,7 @@ function App() {
 
 
 
-      <main className="flex-1 overflow-hidden px-4 lg:px-6 py-6 lg:grid lg:grid-cols-12 gap-6 relative z-10 w-full">
+      <main className="flex-1 mt-24 lg:mt-16 overflow-hidden px-4 lg:px-6 py-4 lg:grid lg:grid-cols-12 gap-6 relative z-10 w-full mb-4">
         
         {/* PLAYER & LYRICS */}
         <div className="flex flex-col gap-6 lg:col-span-8 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden min-w-0">
