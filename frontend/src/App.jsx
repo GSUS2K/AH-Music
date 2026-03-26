@@ -155,7 +155,7 @@ function App() {
           state: `by ${track.author}`,
           assets: {
             large_image: track.thumbnail || "https://cdn.discordapp.com/embed/avatars/0.png",
-            large_text: track.title
+            large_text: import.meta.env.VITE_APP_NAME || "AH Music"
           },
           timestamps: {
             start: Date.now() - playbackMs
@@ -311,7 +311,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.8'} // HUD_MODULAR</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V{systemStats?.version || '5.1.9'} // PRESENCE_OPTIMIZED</span>
              </div>
           </div>
           
