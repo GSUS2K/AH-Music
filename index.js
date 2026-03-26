@@ -340,4 +340,36 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
+// --- AUTONOMOUS RESOURCE MANAGEMENT (V5.2.6) ---
+client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+    // Detect if a user left a voice channel
+    if (oldState.channelId && !newState.channelId) {
+        const guildId = oldState.guild.id;
+        const queue = client.queues.get(guildId);
+        if (!queue || !queue.connection) return;
+
+        const botChannelId = queue.connection.joinConfig.channelId;
+        // Check if the departure was from the bot's active bridge
+        if (oldState.channelId === botChannelId) {
+            const channel = oldState.channel;
+            const humans = channel.members.filter(m => !m.user.bot).size;
+            
+            if (humans === 0) {
+                console.log(`[Auto-Clean] Zero human occupancy in VC: ${channel.name} (${guildId}). Initializing Neural Purge...`);
+                try {
+                    const playCmd = require('./commands/play.js');
+                    if (playCmd.cleanup) playCmd.cleanup(guildId, client.queues);
+                    
+                    const player = queue.connection?.state?.subscription?.player;
+                    if (player) player.stop();
+                    if (queue.connection) queue.connection.destroy();
+                    client.queues.delete(guildId);
+                } catch (err) {
+                    console.error('[Auto-Clean] Purge Failed:', err.message);
+                }
+            }
+        }
+    }
+});
+
 client.login(process.env.DISCORD_TOKEN);
