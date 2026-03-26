@@ -88,6 +88,14 @@ function App() {
   const expandedContainerRef = useRef(null);
   const expandedActiveRef = useRef(null);
 
+  const formatTime = (ms) => {
+    if (!ms || isNaN(ms)) return "0:00";
+    const totalSecs = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const getProxyUrl = (url) => url ? `${API_BASE}/api/proxy?url=${encodeURIComponent(url)}` : null;
 
   useEffect(() => {
