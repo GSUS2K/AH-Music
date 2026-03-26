@@ -351,7 +351,7 @@ module.exports = {
 
         player.play(resource);
 
-        // --- DYNAMIC PRESENCE (V5.2.8) ---
+        // --- DYNAMIC PRESENCE (V5.3.3) ---
         const updatePresence = (clientObj, currentMs = 0) => {
             if (!clientObj?.user) return;
             const timeStr = currentMs > 0 ? `[${Math.floor(currentMs/60000)}:${Math.floor((currentMs%60000)/1000).toString().padStart(2,'0')}] ` : '';
@@ -360,7 +360,7 @@ module.exports = {
                 type: ActivityType.Listening,
                 details: `${track.title.slice(0, 127)}`,
                 state: `by ${track.author.slice(0, 127)}`,
-                largeImageKey: 'icon', // Fallback for various clients
+                largeImageKey: track.thumbnail?.startsWith('http') ? track.thumbnail : 'icon',
                 largeImageText: `${timeStr}V${version} | Q: ${queue.songs.length}`.slice(0, 127)
             });
         };
