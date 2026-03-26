@@ -307,7 +307,7 @@ client.once('ready', async () => {
                 const embed = new EmbedBuilder()
                     .setColor('#00ffbf')
                     .setTitle('✅ Neural Reboot Successful')
-                    .setDescription(`System is back online and all neural nodes have stabilized. \n**Build Sequence:** \`V4.9.5-FINAL\``)
+                    .setDescription(`System is back online and all neural nodes have stabilized. \n**Build Sequence:** \`V4.9.7 // SYNC_CORE\``)
                     .setTimestamp();
                 await channel.send({ embeds: [embed] }).catch(e => console.error('[Recovery] Send Fail:', e.message));
             }

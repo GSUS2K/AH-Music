@@ -3,6 +3,7 @@ const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 const fs = require('fs');
+const os = require('os');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -37,7 +38,7 @@ module.exports = {
                 .setThumbnail(interaction.client.user.displayAvatarURL())
                 .addFields(
                     { name: '⚡ Core Efficiency', value: `${ (os.loadavg()[0] / 2 * 100).toFixed(1) }%`, inline: true },
-                    { name: '🛠 Build Sequence', value: 'V4.9.0-EXPANDED', inline: true },
+                    { name: '🛠 Build Sequence', value: 'V4.9.7-CORE', inline: true },
                     {
                         name: '📊 Pᴇʀғᴏʀᴍᴀɴᴄᴇ',
                         value: `\`\`\`yaml\nRAM: ${rssMB} MB (RSS)\nHeap: ${heapMB} MB\nUptime: ${uptimeStr}\nLat: ${interaction.client.ws.ping}ms\`\`\``,
