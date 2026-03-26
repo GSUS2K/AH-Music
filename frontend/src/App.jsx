@@ -291,18 +291,20 @@ function App() {
   };
 
   const handleSync = async (offset) => {
-    if (!auth?.guild_id) return;
+    const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
+    if (!guildId || guildId === '0') return;
     try {
-      await axios.post(`${API_BASE}/api/sync/${auth.guild_id}`, { offset });
-      fetchQueue(auth.guild_id);
+      await axios.post(`${API_BASE}/api/sync/${guildId}`, { offset });
+      fetchQueue(guildId);
     } catch (err) { console.error("Sync error:", err); }
   };
 
   const handleSource = async () => {
-    if (!auth?.guild_id) return;
+    const guildId = auth?.guild_id || new URLSearchParams(window.location.search).get('guild_id');
+    if (!guildId || guildId === '0') return;
     setIsLyricsLoading(true);
     try {
-      const resp = await axios.post(`${API_BASE}/api/source/${auth.guild_id}`);
+      const resp = await axios.post(`${API_BASE}/api/source/${guildId}`);
       setLyrics(resp.data.lyrics);
     } catch (err) { 
       console.error("Source error:", err);
@@ -377,7 +379,7 @@ function App() {
       <header className="header glass">
         <div className="logo">
           <Zap size={22} color="#00f2ff" />
-          <span className="logo-text">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>// v3.2-QUEUED</span></span>
+          <span className="logo-text">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>// v3.3-FINAL-SYNC</span></span>
         </div>
         
         <div className="telemetry-panel hide-mobile">
