@@ -13,24 +13,27 @@ module.exports = {
             return interaction.reply({ content: 'You are not authorized to use this command.', ephemeral: true });
         }
 
-        await interaction.reply({ content: '🚀 **Update & Reset Sequence Initiated**\n- Pulling latest nebula-code...\n- Rebuilding neural-activity...\n- Refreshing process...', ephemeral: true });
+        await interaction.reply({ content: '🚀 **Update & Reset Sequence Initiated**\n- Cleaning local environment...\n- Pulling latest nebula-code (Hard Reset)...\n- Rebuilding neural-activity (Vite)...\n- Refreshing PM2 process...', ephemeral: true });
         
         const pm2Name = process.env.PM2_APP_NAME || 'AH-Music';
         
-        // Use a single exec to handle the sequence and report progress
-        const pullAndBuild = `git pull origin main && npm run build-activity`;
+        // Force a hard reset to match origin/main and then rebuild the frontend
+        const updateCommand = `git fetch --all && git reset --hard origin/main && npm run build-activity`;
         
-        exec(pullAndBuild, (err, stdout, stderr) => {
+        console.log(`[Restart] Initiating update for ${pm2Name}...`);
+        
+        exec(updateCommand, (err, stdout, stderr) => {
             if (err) {
-                console.error('[Restart] Build Failure:', err.message);
-                return interaction.followUp({ content: `❌ **Sequence Aborted during Build**: ${err.message}`, ephemeral: true });
+                console.error('[Restart] Critical Failure:', err.message);
+                return interaction.followUp({ content: `❌ **Sequence Aborted**: ${err.message}\n\`\`\`${stderr.substring(0, 500)}\`\`\``, ephemeral: true });
             }
             
-            // Check if git actually pulled anything
-            const isUpToDate = stdout.includes('Already up to date');
-            const statusMsg = isUpToDate ? '✅ **Code is already up to date.**' : '✅ **Latest changes pulled and rebuilt.**';
+            const buildSuccess = stdout.includes('built in') || stdout.includes('successfully');
+            const statusMsg = buildSuccess ? '✅ **Latest changes pulled and rebuilt successfully.**' : '⚠️ **Pull complete, but build output was ambiguous. Restarting anyway...**';
             
-            interaction.followUp({ content: `${statusMsg} Restarting process \`${pm2Name}\` now...`, ephemeral: true }).then(() => {
+            console.log(`[Restart] Build Output:\n${stdout.substring(stdout.length - 1000)}`);
+
+            interaction.followUp({ content: `${statusMsg}\n- Version: \`v3.2-QUEUED\`\n- Restarting \`${pm2Name}\` now...`, ephemeral: true }).then(() => {
                 // Final step: Restart the PM2 process
                 exec(`pm2 restart ${pm2Name}`, (restErr) => {
                     if (restErr) console.error('[Restart] PM2 Failure:', restErr.message);
