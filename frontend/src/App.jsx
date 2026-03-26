@@ -245,11 +245,11 @@ function App() {
           <div className="hidden xl:flex items-center gap-6 border-l border-white/10 h-10 pl-8">
              <div className="flex flex-col items-end">
                 <div className="flex items-center gap-2 label-caps mb-0 text-[10px] whitespace-nowrap"><Cpu size={10} className="text-brand-accent" /> SYNAPSE LOAD</div>
-                <div className="font-mono text-[11px] font-black text-brand-accent">{systemStats?.cpu || '0%'}</div>
+                <div className="font-mono text-[11px] font-black text-brand-accent">{systemStats?.load || '0%'}</div>
              </div>
              <div className="flex flex-col items-end">
                 <div className="flex items-center gap-2 label-caps mb-0 text-[10px] whitespace-nowrap"><HardDrive size={10} className="text-brand-accent" /> MEM_ALLOC</div>
-                <div className="font-mono text-[11px] font-black text-brand-accent">{systemStats?.mem || '0%'}</div>
+                <div className="font-mono text-[11px] font-black text-brand-accent">{systemStats?.mem?.percent ? `${systemStats.mem.percent}%` : '0%'}</div>
              </div>
           </div>
 
