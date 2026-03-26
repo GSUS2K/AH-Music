@@ -221,7 +221,7 @@ function App() {
          <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-brand-accent/10 blur-[80px] rounded-full animate-pulse-glow" style={{ animationDelay: '2s' }} />
       </div>
 
-      <header className="fixed top-0 left-0 right-0 h-16 border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-3xl z-50 px-4 flex items-center justify-between">
+      <header className="fixed top-0 left-0 right-0 h-auto lg:h-16 border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-3xl z-50 px-4 flex flex-col lg:flex-row items-center justify-between py-3 lg:py-0 gap-3 lg:gap-0">
         {/* LEFT: NEURAL CORE */}
         <div className="flex items-center gap-6 min-w-[240px]">
           <div className="flex items-center gap-3">
@@ -231,7 +231,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-               <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold">V4.8 // CORE_ACTIVE</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold">V4.8.7 // CORE_ACTIVE</span>
              </div>
           </div>
           
@@ -248,8 +248,8 @@ function App() {
           </div>
         </div>
 
-        {/* CENTER: NEURAL SEARCH */}
-        <div className="flex-1 flex justify-center max-w-[600px] px-8">
+        {/* CENTER: NEURAL SEARCH (Responsive wrapper) */}
+        <div className="w-full lg:flex-1 flex justify-center lg:max-w-[600px] lg:px-8 order-3 lg:order-2">
           <form onSubmit={handleSearch} className="relative w-full group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-text-dim group-focus-within:text-brand-accent z-10 transition-colors" size={18} />
             <input 
@@ -303,7 +303,7 @@ function App() {
          </div>
       </div>
 
-      <main className="flex-1 mt-16 px-4 lg:px-6 py-6 lg:grid lg:grid-cols-12 gap-6 relative z-10 w-full pb-32">
+      <main className="flex-1 mt-32 lg:mt-16 px-4 lg:px-6 py-6 lg:grid lg:grid-cols-12 gap-6 relative z-10 w-full pb-32">
         
         {/* PLAYER & LYRICS */}
         <div className="flex flex-col gap-6 lg:col-span-8 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden min-w-0">

@@ -15,15 +15,15 @@ module.exports = {
             .setThumbnail(client.user.displayAvatarURL())
             .setDescription('Integrated Discord Music Bot & Interactive Web Activity.')
             .addFields(
-                { 
-                    name: '🌐 Hᴏsᴛɪɴɢ Pʟᴀᴛғᴏʀᴍ', 
+                { name: '🌐 System Version', value: 'V4.8.7-NEURAL', inline: true },
+                {
+                    name: '🌐 Hᴏsᴛɪɴɢ Pʟᴀᴛғᴏʀᴍ',
                     value: '```yaml\nProvider: Google Cloud Platform (E2-Micro)\nInstance: Ubuntu 24.04 (x86_64)\nLocation: The Dalles, Oregon (US)\nUptime: ' + uptimeStr + '```',
-                    inline: false 
+                    inline: false
                 },
-                { 
-                    name: '🛠️ Aʀᴄʜɪᴛᴇᴄᴛᴜʀᴇ', 
+                {
+                    name: '🛠️ Aʀᴄʜɪᴛᴇᴄᴛᴜʀᴇ',
                     value: `\`\`\`yaml\nRuntime: Node.js v22.x\nLibrary: Discord.js v14.16.3\nDashboard: ${process.env.EXTERNAL_DASHBOARD_URL || 'https://aftrhrsmsc.duckdns.org/activity'}\nProxy: Caddy Reverse Proxy\`\`\``,
-                    inline: false 
                 },
                 { 
                     name: '🚀 Cᴏʀᴇ Fᴇᴀᴛᴜʀᴇs', 
