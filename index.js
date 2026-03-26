@@ -309,7 +309,7 @@ client.once('ready', async () => {
                     .setTitle('✅ Neural Reboot Successful')
                     .setDescription(`System is back online and all neural nodes have stabilized.`)
                     .addFields(
-                        { name: '🌐 System Version', value: 'V4.9.9.2-PRESENCE', inline: true }
+                        { name: '🌐 System Version', value: 'V4.9.9.3-VIEWPORT', inline: true }
                     )
                     .setTimestamp();
                 await channel.send({ embeds: [embed] }).catch(e => console.error('[Recovery] Send Fail:', e.message));

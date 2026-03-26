@@ -136,11 +136,12 @@ function App() {
         const targetScroll = activeLine.offsetTop - (container.offsetHeight / 2) + (activeLine.offsetHeight / 2);
         container.scrollTo({ top: targetScroll, behavior: 'smooth' });
     }
-    // Expanded Sync (Bounded Scroll)
+    // Expanded Sync (Bounded Scroll with Header Offset)
     if (expandedActiveRef.current && !isAutoScrollPaused && expandedContainerRef.current) {
         const activeLine = expandedActiveRef.current;
         const container = expandedContainerRef.current;
-        const targetScroll = activeLine.offsetTop - (container.offsetHeight / 2) + (activeLine.offsetHeight / 2);
+        // Shift target scroll UP by 100px to push content DOWN from the header
+        const targetScroll = activeLine.offsetTop - (container.offsetHeight / 2) + (activeLine.offsetHeight / 2) - 100;
         container.scrollTo({ top: targetScroll, behavior: 'smooth' });
     }
   }, [activeLyricIndex, isAutoScrollPaused, isLyricsExpanded]);
@@ -243,7 +244,7 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.9.2 // SYNC_PRESENCE</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.9.9.3 // SYNC_VIEWPORT</span>
              </div>
           </div>
           
