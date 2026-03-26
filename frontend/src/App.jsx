@@ -222,8 +222,8 @@ function App() {
       </div>
 
       <header className="fixed top-0 left-0 right-0 h-auto lg:h-16 border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-3xl z-50 px-4 flex flex-col lg:flex-row items-center justify-between py-3 lg:py-0 gap-3 lg:gap-0">
-        {/* LEFT: NEURAL CORE */}
-        <div className="flex items-center gap-6 min-w-[240px]">
+        {/* TOP ROW: CORE + USER (Responsive wrapper) */}
+        <div className="w-full flex items-center justify-between lg:w-auto lg:gap-6 lg:min-w-[240px]">
           <div className="flex items-center gap-3">
              <div className="w-9 h-9 glass-card flex items-center justify-center border-brand-accent/30 relative">
                <Zap className="text-brand-accent" size={18} fill="currentColor" />
@@ -254,7 +254,7 @@ function App() {
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-text-dim group-focus-within:text-brand-accent z-10 transition-colors" size={18} />
             <input 
               type="text" 
-              placeholder="Search neural index..." 
+              placeholder="Search music..." 
               className="w-full bg-white/5 border border-white/10 rounded-full pl-14 pr-10 h-11 text-sm outline-none focus:border-brand-accent/50 focus:bg-brand-accent/[0.03] transition-all"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -263,9 +263,9 @@ function App() {
           </form>
         </div>
 
-        {/* RIGHT: USER BIO + VOICE NODE */}
-        <div className="flex items-center justify-end gap-6 min-w-[240px]">
-          <div className="hidden sm:flex items-center leading-none gap-4 pr-6 border-r border-white/5 h-8 justify-center">
+        {/* RIGHT: USER BIO + VOICE NODE (Wrapped for mobile) */}
+        <div className="hidden lg:flex items-center justify-end gap-6 min-w-[240px]">
+          <div className="flex items-center leading-none gap-4 pr-6 border-r border-white/5 h-8 justify-center">
              <div className="flex flex-row items-center gap-4">
                 <div className="flex items-center gap-1.5 order-2">
                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
@@ -280,6 +280,17 @@ function App() {
           <div className="w-10 h-10 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden shrink-0 group hover:border-brand-accent transition-colors">
             <User size={20} className="text-brand-text-dim group-hover:text-brand-accent" />
           </div>
+        </div>
+
+        {/* MOBILE USER MINI (Only for the top row in mobile) */}
+        <div className="lg:hidden flex items-center gap-3">
+           <div className="flex flex-col items-end leading-none">
+              <span className="text-[10px] font-black uppercase text-white">{auth?.user?.username || 'GUEST'}</span>
+              <span className="text-[8px] font-mono uppercase text-brand-accent">{voiceChannel}</span>
+           </div>
+           <div className="w-8 h-8 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden">
+             <User size={16} className="text-brand-accent" />
+           </div>
         </div>
       </header>
 
