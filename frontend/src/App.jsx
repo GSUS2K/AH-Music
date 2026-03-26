@@ -222,8 +222,9 @@ function App() {
       </div>
 
       <header className="fixed top-0 left-0 right-0 h-auto lg:h-16 border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-3xl z-50 px-4 flex flex-col lg:flex-row items-center justify-between py-3 lg:py-0 gap-3 lg:gap-0">
-        {/* TOP ROW: CORE + USER (Responsive wrapper) */}
+        {/* TOP ROW: CORE + MINI USER (Horizontal on ALL devices) */}
         <div className="w-full flex items-center justify-between lg:w-auto lg:gap-6 lg:min-w-[240px]">
+          {/* NEURAL CORE */}
           <div className="flex items-center gap-3">
              <div className="w-9 h-9 glass-card flex items-center justify-center border-brand-accent/30 relative">
                <Zap className="text-brand-accent" size={18} fill="currentColor" />
@@ -231,10 +232,21 @@ function App() {
              </div>
              <div className="flex flex-col">
                <span className="font-black text-[12px] uppercase tracking-tighter leading-none">{import.meta.env.VITE_APP_NAME || 'AH MUSIC'}</span>
-                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold">V4.8.7 // CORE_ACTIVE</span>
+                <span className="text-[9px] text-brand-accent font-mono tracking-tighter uppercase opacity-50 font-bold tracking-[0.1em]">V4.8.8 // STABLE</span>
              </div>
           </div>
           
+          {/* MOBILE USER NODE (Only visible in top row on mobile) */}
+          <div className="lg:hidden flex items-center gap-3">
+             <div className="flex flex-col items-end leading-none">
+                <span className="text-[10px] font-black uppercase text-white tracking-widest">{auth?.user?.username || 'GUEST'}</span>
+                <span className="text-[8px] font-mono uppercase text-brand-accent font-bold">{voiceChannel}</span>
+             </div>
+             <div className="w-8 h-8 rounded-full glass-card flex items-center justify-center border-brand-accent/20 overflow-hidden">
+               <User size={16} className="text-brand-accent" />
+             </div>
+          </div>
+
           <div className="hidden lg:flex items-center gap-4 pl-6 border-l border-white/5 h-8">
              <div className="flex flex-col">
                 <span className="text-[8px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">NODE_UPTIME</span>
@@ -248,7 +260,7 @@ function App() {
           </div>
         </div>
 
-        {/* CENTER: NEURAL SEARCH (Responsive wrapper) */}
+        {/* SEARCH ROW: Dedicated full-width row on mobile */}
         <div className="w-full lg:flex-1 flex justify-center lg:max-w-[600px] lg:px-8 order-3 lg:order-2">
           <form onSubmit={handleSearch} className="relative w-full group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-text-dim group-focus-within:text-brand-accent z-10 transition-colors" size={18} />
@@ -263,8 +275,8 @@ function App() {
           </form>
         </div>
 
-        {/* RIGHT: USER BIO + VOICE NODE (Wrapped for mobile) */}
-        <div className="hidden lg:flex items-center justify-end gap-6 min-w-[240px]">
+        {/* DESKTOP USER BIO (Hidden on mobile row) */}
+        <div className="hidden lg:flex items-center justify-end gap-6 min-w-[240px] order-2 lg:order-3">
           <div className="flex items-center leading-none gap-4 pr-6 border-r border-white/5 h-8 justify-center">
              <div className="flex flex-row items-center gap-4">
                 <div className="flex items-center gap-1.5 order-2">
@@ -281,8 +293,6 @@ function App() {
             <User size={20} className="text-brand-text-dim group-hover:text-brand-accent" />
           </div>
         </div>
-
-        {/* Redundant mobile node removed */}
       </header>
 
       {/* Floating Telemetry Hub (The "Neural Link") */}
