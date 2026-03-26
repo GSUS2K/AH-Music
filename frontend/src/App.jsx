@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Component } from 'react';
-import { Play, Pause, SkipForward, Search, Plus, Loader2, ListMusic, Music, Globe, User, BookOpen, Trash2, Rewind, FastForward, ExternalLink, ChevronLeft, ChevronRight, Zap, X, Cpu, HardDrive, Activity, Radio, Signal, Wifi, Clock, Maximize2, Minimize2, RotateCcw, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Play, Pause, SkipForward, Search, Plus, Loader2, ListMusic, Music, Globe, User, UserPlus, BookOpen, Trash2, Rewind, FastForward, ExternalLink, ChevronLeft, ChevronRight, Zap, X, Cpu, HardDrive, Activity, Radio, Signal, Wifi, Clock, Maximize2, Minimize2, RotateCcw, AlertTriangle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { setupDiscordSdk } from './discord';
 import axios from 'axios';
@@ -342,6 +342,15 @@ function App() {
                   <span className={`text-[9px] font-black uppercase tracking-widest ${isStatsExpanded ? 'text-brand-accent' : 'text-brand-text-dim'}`}>
                     {isStatsExpanded ? 'Live HUD' : 'Stats'}
                   </span>
+                </button>
+
+                {/* NEURAL LINK INVITE */}
+                <button 
+                  onClick={() => discordSdkRef.current?.commands.openInviteDialog()}
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-accent/10 border border-brand-accent/30 hover:bg-brand-accent/20 transition-all mini-hide group"
+                >
+                  <UserPlus size={12} className="text-brand-accent group-hover:scale-110 transition-transform" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-brand-accent">Invite</span>
                 </button>
 
                 <AnimatePresence>
