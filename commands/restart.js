@@ -21,6 +21,7 @@ module.exports = {
         const pm2Name = process.env.PM2_APP_NAME || 'AH-Music';
         
         if (!shouldUpdate) {
+            fs.writeFileSync('./.restart_context.json', JSON.stringify({ channelId: interaction.channelId, updated: false, timestamp: Date.now() }));
             await interaction.reply({ content: `✅ **Restarting \`${pm2Name}\`...**`, ephemeral: true });
             return exec(`pm2 restart ${pm2Name}`);
         }
