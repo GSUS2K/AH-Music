@@ -123,11 +123,18 @@ apiRouter.get('/search', async (req, res) => {
         const cookiesPath = process.env.YOUTUBE_COOKIES_PATH || './cookies.txt';
         if (require('fs').existsSync(cookiesPath)) options.cookies = cookiesPath;
         const info = await youtubedl(urlQuery, options);
-        const results = (info.entries || [info]).map(entry => ({
-            id: entry.id, title: entry.title, thumbnail: entry.thumbnail || 'https://cdn.discordapp.com/embed/avatars/0.png',
-            author: entry.uploader || entry.channel || 'Unknown',
-            url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
-        })).filter(r => r.id);
+        const results = (info.entries || [info]).map(entry => {
+            let thumb = entry.thumbnail;
+            if (!thumb && entry.thumbnails && entry.thumbnails.length > 0) {
+                thumb = entry.thumbnails[entry.thumbnails.length - 1].url || entry.thumbnails[0].url;
+            }
+            return {
+                id: entry.id, title: entry.title, 
+                thumbnail: thumb || 'https://cdn.discordapp.com/embed/avatars/0.png',
+                author: entry.uploader || entry.channel || 'Unknown',
+                url: entry.webpage_url || entry.url, duration: (entry.duration || 0) * 1000
+            };
+        }).filter(r => r.id);
         res.json(results);
     } catch (err) { res.status(500).json({ error: 'Search failed' }); }
 });
@@ -237,13 +244,20 @@ apiRouter.get('/lyrics', async (req, res) => {
 
 apiRouter.get('/proxy', async (req, res) => {
     const url = req.query.url;
-    if (!url) return res.status(400).send('Missing');
+    if (!url || url.includes('discordapp.com')) return res.redirect(url || 'https://cdn.discordapp.com/embed/avatars/0.png');
     try {
-        const response = await axios.get(decodeURIComponent(url), { responseType: 'arraybuffer', timeout: 5000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const response = await axios.get(decodeURIComponent(url), { 
+            responseType: 'arraybuffer', 
+            timeout: 8000, 
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } 
+        });
         res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
         res.set('Cache-Control', 'public, max-age=86400');
         res.send(response.data);
-    } catch (err) { res.status(500).send('F'); }
+    } catch (err) { 
+        console.error('[Proxy Error]', err.message);
+        res.redirect('https://cdn.discordapp.com/embed/avatars/0.png'); 
+    }
 });
 
 apiRouter.get('/system', (req, res) => {
