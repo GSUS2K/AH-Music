@@ -357,7 +357,7 @@ module.exports = {
             const progressStr = `${Math.floor(currentMs/60000)}:${Math.floor((currentMs%60000)/1000).toString().padStart(2,'0')} / ${durationStr}`;
             clientObj.user.setActivity({
                 name: 'AH Music',
-                type: ActivityType.Playing, // Sync to Type 0
+                type: ActivityType.Listening, // Reverted to Listening
                 details: `${track.title.slice(0, 127)}`,
                 state: `by ${track.author.slice(0, 127)}`,
                 largeImageKey: track.thumbnail?.startsWith('http') ? track.thumbnail : 'icon',

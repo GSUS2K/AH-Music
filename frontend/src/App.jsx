@@ -187,7 +187,7 @@ function App() {
       await discordSdkRef.current.commands.setActivity({
         activity: {
           name: "AH Music",
-          type: 0, // Playing (more reliable for invite embeds)
+          type: 2, // Listening (standard for music bots)
           details: track.title.slice(0, 127),
           state: `by ${track.author}`.slice(0, 127),
           assets: {
