@@ -151,6 +151,11 @@ function App() {
       if (track && track.title !== currentTrackTitle) {
         setCurrentTrackTitle(track.title);
         updateDiscordRichPresence(track, serverMs);
+      } else if (track) {
+        // Periodic heartbeat to ensure presence doesn't timeout
+        if (Math.floor(serverMs / 1000) % 20 === 0) {
+            updateDiscordRichPresence(track, serverMs);
+        }
       }
     } catch (err) {}
   };
