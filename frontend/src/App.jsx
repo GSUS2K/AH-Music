@@ -81,10 +81,9 @@ function App() {
   const [currentTrackTitle, setCurrentTrackTitle] = useState("");
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [uptime, setUptime] = useState("00:00:00");
-  const [isLyricsExpanded, setIsLyricsExpanded] = useState(false);
-  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
-  const expandedContainerRef = useRef(null);
   const expandedActiveRef = useRef(null);
+  const [typedBuffer, setTypedBuffer] = useState("");
+  const [isPacmanOpen, setIsPacmanOpen] = useState(false);
 
   const getProxyUrl = (url) => url ? `${API_BASE}/api/proxy?url=${encodeURIComponent(url)}` : null;
 
@@ -144,6 +143,25 @@ function App() {
       }
     } catch (err) {}
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if typing in search or any input
+      if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
+      
+      setTypedBuffer(prev => {
+        const next = (prev + e.key.toLowerCase()).slice(-10);
+        if (next.includes("pacman")) {
+          setIsPacmanOpen(true);
+          return "";
+        }
+        return next;
+      });
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const updateDiscordRichPresence = async (track, playbackMs = 0) => {
     if (!discordSdkRef.current || !track) return;
@@ -697,6 +715,55 @@ function App() {
                 </div>
                )}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* PAC-MAN EASTER EGG (V5.2.9) */}
+      <AnimatePresence>
+        {isPacmanOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.8, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.8, y: 20 }}
+              className="w-full max-w-4xl aspect-[4/3] bg-[#000] border-4 border-[#2121ff] rounded-2xl overflow-hidden relative shadow-[0_0_50px_rgba(33,33,255,0.4)]"
+            >
+              {/* Retro Header */}
+              <div className="absolute top-0 left-0 right-0 h-16 bg-[#000] border-b-2 border-[#2121ff] flex items-center justify-between px-8 z-10">
+                <div className="flex flex-col">
+                  <h2 className="text-[#ffff00] font-black text-2xl tracking-[0.2em] italic uppercase">PAC-MAN</h2>
+                  <span className="text-[#ff0000] text-[8px] font-mono tracking-widest uppercase opacity-80">SECRET UNLOCKED — YOU FOUND IT!</span>
+                </div>
+                <button 
+                  onClick={() => setIsPacmanOpen(false)}
+                  className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+                >
+                  <X className="text-[#ffff00]" size={24} />
+                </button>
+              </div>
+
+              {/* Game Viewport */}
+              <div className="absolute inset-0 pt-16 flex items-center justify-center bg-black">
+                <iframe 
+                  src="https://www.google.com/logos/2010/pacman10-i.html" 
+                  className="w-full h-full border-0"
+                  title="Neural Ghost Protocol"
+                  style={{ transform: 'scale(1.2)', transformOrigin: 'center' }}
+                />
+              </div>
+
+              {/* Instruction overlay */}
+              <div className="absolute bottom-6 left-0 right-0 text-center">
+                 <span className="bg-black/80 px-4 py-2 rounded-full border border-[#2121ff] text-[#ffff00] text-[10px] font-mono tracking-widest uppercase animate-pulse">
+                   INSERT COIN TO START // USE ARROWS TO NAVIGATE
+                 </span>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
