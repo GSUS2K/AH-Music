@@ -5,7 +5,7 @@ module.exports = {
         .setName('ping')
         .setDescription('Check the bot\'s latency and status'),
     async execute(interaction) {
-        const sent = await interaction.reply({ content: 'Pinging...', fetchReply: true, ephemeral: true });
+        const sent = await interaction.reply({ content: 'Pinging...', fetchReply: true, flags: [MessageFlags.Ephemeral] });
         const latency = sent.createdTimestamp - interaction.createdTimestamp;
         const apiLatency = interaction.client.ws.ping;
         const apiLatencyStr = (apiLatency && apiLatency !== -1) ? `\`${apiLatency}ms\`` : '`Synchronizing...`';

@@ -15,7 +15,7 @@ module.exports = {
         const music = require('./play.js');
         const channel = interaction.member.voice.channel;
         
-        if (!channel) return interaction.reply({ content: 'You are not connected to a voice channel!', ephemeral: true });
+        if (!channel) return interaction.reply({ content: 'You are not connected to a voice channel!', flags: [MessageFlags.Ephemeral] });
         
         await interaction.deferReply();
         const input = interaction.options.getString('query');

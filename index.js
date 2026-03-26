@@ -33,7 +33,7 @@ if (fs.existsSync(systemYtdlp)) {
     console.log('[Startup] Using npm bundled fallback');
 }
 
-const { Client, GatewayIntentBits, Collection, EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder, SlashCommandBuilder, Events, MessageFlags } = require('discord.js');
 const { exec } = require('child_process');
 const { Player } = require('discord-player');
 
@@ -296,7 +296,7 @@ app.listen(PORT, () => {
     console.log(`[BOOT] Web Server on ${PORT}`);
 });
 
-client.once('ready', async () => {
+client.once(Events.ClientReady, async () => {
     console.log(`[BOOT] Logged in as ${client.user.tag}!`);
 
     // REBOOT RECOVERY (PRIORITY ONE)

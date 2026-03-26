@@ -1,4 +1,5 @@
-const { SlashCommandBuilder } = require('discord.js');
+```javascript
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -17,7 +18,7 @@ module.exports = {
         const serverQueue = queueMap.get(interaction.guild.id);
 
         if (!serverQueue || !serverQueue.songs.length) {
-            return interaction.reply({ content: '❌ Nothing is currently playing!', ephemeral: true });
+            return interaction.reply({ content: '❌ Nothing is currently playing!', flags: [MessageFlags.Ephemeral] });
         }
 
         if (interaction.options.getSubcommand() === 'offset') {

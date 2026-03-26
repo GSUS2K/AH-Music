@@ -8,7 +8,7 @@ module.exports = {
     async execute(interaction) {
         const queue = useQueue(interaction.guild.id);
         if (!queue || !queue.tracks.data.length) {
-            return interaction.reply({ content: 'The queue is currently empty!', ephemeral: true });
+            return interaction.reply({ content: 'The queue is currently empty!', flags: [MessageFlags.Ephemeral] });
         }
         
         const currentTrack = queue.currentTrack;

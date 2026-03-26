@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, entersState, VoiceConnectionStatus, AudioPlayerStatus } = require('@discordjs/voice');
 const youtubedl = require('youtube-dl-exec');
 const fs = require('fs');
@@ -24,7 +24,7 @@ module.exports = {
     },
     async handlePlay(interaction, query) {
         const channel = interaction.member.voice.channel;
-        if (!channel) return interaction.reply({ content: 'You are not connected to a voice channel!', ephemeral: true });
+        if (!channel) return interaction.reply({ content: 'You are not connected to a voice channel!', flags: [MessageFlags.Ephemeral] });
         
         if (!interaction.deferred && !interaction.replied) await interaction.deferReply();
 
@@ -124,9 +124,9 @@ module.exports = {
                 console.error(err);
                 if (interaction.guild?.id) queueMap.delete(interaction.guild.id);
                 if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ content: "Could not join the voice channel.", ephemeral: true }).catch(() => null);
+                    await interaction.reply({ content: "Could not join the voice channel.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 } else {
-                    await interaction.followUp({ content: "Could not join the voice channel.", ephemeral: true }).catch(() => null);
+                    await interaction.followUp({ content: "Could not join the voice channel.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 }
             }
 
