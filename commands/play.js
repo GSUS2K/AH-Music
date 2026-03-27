@@ -362,8 +362,7 @@ module.exports = {
                     type: ActivityType.Listening,
                     details: `${track.title.slice(0, 127)}`,
                     state: `by ${track.author.slice(0, 127)}`,
-                    largeImageKey: track.thumbnail?.startsWith('http') ? track.thumbnail : 'icon',
-                    largeImageText: `V5.3.13 | Q: ${queue.songs.length}`.slice(0, 127)
+                    largeImageKey: track.thumbnail?.startsWith('http') ? track.thumbnail : 'icon'
                 }).catch(() => null);
             } catch (e) {
                 console.error("[Presence Error] Internal:", e.message);

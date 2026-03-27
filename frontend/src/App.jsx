@@ -199,8 +199,7 @@ function App() {
           details: track.title.slice(0, 127),
           state: `by ${track.author}`.slice(0, 127),
           assets: {
-            large_image: track.thumbnail || "https://cdn.discordapp.com/embed/avatars/0.png",
-            large_text: `V5.3.12 // Q: ${queue.length}`.slice(0, 127)
+            large_image: track.thumbnail || "https://cdn.discordapp.com/embed/avatars/0.png"
           },
           timestamps: {
             start: Date.now() - playbackMs
